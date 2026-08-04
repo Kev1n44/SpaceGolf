@@ -27,13 +27,14 @@ html, body {
   background: #050814;
   font-family: var(--font-body);
   color: var(--ink);
-  touch-action: none;
+  touch-action: manipulation;
 }
 
 #game-root {
   position: relative;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -42,6 +43,7 @@ html, body {
   width: 100%;
   height: 100%;
   background: #050814;
+  touch-action: none;
 }
 
 .hidden {
@@ -217,31 +219,48 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
   background: rgba(2, 6, 18, 0.72);
   backdrop-filter: blur(6px);
   z-index: 20;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 .panel {
   width: min(520px, 100%);
+  max-height: min(92dvh, 920px);
   background: var(--panel);
   border: 1px solid rgba(94, 200, 255, 0.28);
   border-radius: 18px;
-  padding: 28px 24px;
+  padding: 22px 18px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-start {
+  padding: 18px 16px 14px;
+}
+
+.panel-header {
+  flex: 0 0 auto;
 }
 
 .panel.compact {
   text-align: center;
   width: min(380px, 100%);
+  max-height: none;
+  display: block;
 }
 
 .panel h1 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 7vw, 2.8rem);
+  font-size: clamp(1.7rem, 7vw, 2.8rem);
   letter-spacing: 0.04em;
   background: linear-gradient(120deg, #9be7ff, #ffe9a8);
   -webkit-background-clip: text;
@@ -250,27 +269,61 @@ html, body {
 }
 
 .subtitle {
-  margin: 6px 0 18px;
+  margin: 6px 0 12px;
   color: var(--ink-dim);
-  font-size: 0.95rem;
+  font-size: clamp(0.85rem, 3.5vw, 0.95rem);
 }
 
 .instructions h2 {
   margin: 0 0 10px;
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 4vw, 1.05rem);
   color: var(--accent);
 }
 
+.instructions-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  margin: 0 0 12px;
+  padding: 4px 6px 8px 2px;
+  border-radius: 10px;
+  /* Barra de desplazamiento visible en WebKit/móvil */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(94, 200, 255, 0.55) rgba(0, 0, 0, 0.25);
+}
+
+.instructions-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.instructions-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+}
+
+.instructions-scroll::-webkit-scrollbar-thumb {
+  background: rgba(94, 200, 255, 0.55);
+  border-radius: 999px;
+}
+
 .instructions ul {
-  margin: 0 0 22px;
+  margin: 0;
   padding-left: 18px;
   color: var(--ink-dim);
-  font-size: 0.9rem;
+  font-size: clamp(0.82rem, 3.4vw, 0.9rem);
   line-height: 1.45;
 }
 
 .instructions li {
   margin-bottom: 8px;
+}
+
+.panel-footer {
+  flex: 0 0 auto;
+  padding-top: 4px;
 }
 
 .panel button,
@@ -284,9 +337,13 @@ html, body {
   background: linear-gradient(135deg, var(--accent), var(--accent-deep));
   color: #041018;
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 4vw, 1.05rem);
   font-weight: 700;
   cursor: pointer;
+}
+
+.panel-footer button {
+  margin-top: 0;
 }
 
 .panel .secondary {
@@ -324,5 +381,56 @@ html, body {
 @media (max-width: 899px) {
   #mobile-controls:not(.hidden) {
     display: flex;
+  }
+
+  .overlay {
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  .panel-start {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    max-height: calc(100svh - 24px);
+    margin: auto 0;
+  }
+
+  .instructions-scroll {
+    /* Asegura espacio de scroll en pantallas bajas */
+    max-height: none;
+  }
+
+  #btn-thrust {
+    width: 96px;
+    height: 96px;
+  }
+
+  #dpad {
+    width: 120px;
+    height: 120px;
+  }
+
+  .dpad-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dpad-btn[data-dir="up"] { left: 40px; }
+  .dpad-btn[data-dir="left"] { top: 40px; }
+  .dpad-btn[data-dir="right"] { top: 40px; }
+  .dpad-btn[data-dir="down"] { left: 40px; }
+}
+
+@media (max-height: 700px) {
+  .panel-start {
+    padding: 14px 12px 10px;
+  }
+
+  .panel h1 {
+    font-size: clamp(1.45rem, 6vw, 2rem);
+  }
+
+  .subtitle {
+    margin-bottom: 8px;
   }
 }

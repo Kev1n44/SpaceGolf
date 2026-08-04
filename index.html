@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>SpaceGolf — Nivel 1</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -39,10 +39,12 @@
     </div>
 
     <div id="overlay-start" class="overlay">
-      <div class="panel">
-        <h1>SpaceGolf</h1>
-        <p class="subtitle">Golf espacial — Nivel 1</p>
-        <div class="instructions">
+      <div class="panel panel-start">
+        <div class="panel-header">
+          <h1>SpaceGolf</h1>
+          <p class="subtitle">Golf espacial — Nivel 1</p>
+        </div>
+        <div class="instructions instructions-scroll">
           <h2>Instrucciones</h2>
           <ul>
             <li>Apunta la flecha de dirección de tu nave.</li>
@@ -58,7 +60,9 @@
             <li>Si sales de la pantalla, te perderás en el espacio.</li>
           </ul>
         </div>
-        <button id="btn-start" type="button">Iniciar</button>
+        <div class="panel-footer">
+          <button id="btn-start" type="button">Iniciar</button>
+        </div>
       </div>
     </div>
 

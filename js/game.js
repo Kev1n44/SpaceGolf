@@ -1553,10 +1553,12 @@
   });
   els.btnRetry.addEventListener("click", resetLevel);
 
-  // Evitar scroll / gestos en móvil
+  // Evitar scroll / gestos en el canvas durante el juego,
+  // pero permitir desplazamiento en overlays (instrucciones, pausa, fin)
   document.addEventListener(
     "touchmove",
     (e) => {
+      if (e.target.closest(".overlay, .instructions-scroll, .panel")) return;
       if (e.target.closest("#game-root")) e.preventDefault();
     },
     { passive: false }
