@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>SpaceGolf — Nivel 1</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hidden">
+      <div id="hud-actions">
+        <button id="btn-pause" type="button" aria-label="Pausar">❚❚</button>
+        <button id="btn-restart" type="button" aria-label="Reiniciar" title="Reiniciar">↻</button>
+      </div>
+      <div id="hud-bars">
+        <div id="air-wrap" class="bar-wrap hidden">
+          <span>Aire</span>
+          <div id="air-bar"><div id="air-fill"></div></div>
+        </div>
+        <div id="power-wrap" class="bar-wrap hidden">
+          <span>Fuerza</span>
+          <div id="power-bar"><div id="power-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="mobile-controls" class="hidden">
+      <div id="dpad">
+        <button class="dpad-btn" data-dir="up" type="button">▲</button>
+        <button class="dpad-btn" data-dir="left" type="button">◀</button>
+        <button class="dpad-btn" data-dir="right" type="button">▶</button>
+        <button class="dpad-btn" data-dir="down" type="button">▼</button>
+      </div>
+      <button id="btn-thrust" type="button">PROPULSIÓN</button>
+    </div>
+
+    <div id="overlay-start" class="overlay">
+      <div class="panel">
+        <h1>SpaceGolf</h1>
+        <p class="subtitle">Golf espacial — Nivel 1</p>
+        <div class="instructions">
+          <h2>Instrucciones</h2>
+          <ul>
+            <li>Apunta la flecha de dirección de tu nave.</li>
+            <li>Mantén la tecla <strong>Espacio</strong> (desde el PC) o el botón <strong>Propulsión</strong> (desde el móvil) para cargar fuerza. La barra sube y baja: suelta en el momento deseado.</li>
+            <li>Usa las flechas para soltar aire y frenar. Cada uso vacía la barra de aire; espera a que se recargue.</li>
+            <li><span class="c-red">Órbita roja</span>: evita llegar a esta en estrellas y planetas para evitar el impacto.</li>
+            <li><span class="c-orange">Órbita naranja</span>: evita caer en esta, dado que puedes quedar en órbita permanente.</li>
+            <li><span class="c-green">Órbita verde</span>: si te detienes ahí, podrás orbitar el tiempo que desees y luego salir con propulsión. Si vas muy rápido, atravesarás hacia otras órbitas interiores.</li>
+            <li>Mientras más grandes son los objetos estelares, más velocidad te dará en su órbita verde.</li>
+            <li>Los cinturones de asteroides bloquean el paso.</li>
+            <li>La estación espacial flota suavemente: atraca solo en el círculo amarillo y luego lánzate al área segura.</li>
+            <li>Llega al <span class="c-purple">área segura</span> y detente dentro con poca velocidad.</li>
+            <li>Si sales de la pantalla, te perderás en el espacio.</li>
+          </ul>
+        </div>
+        <button id="btn-start" type="button">Iniciar</button>
+      </div>
+    </div>
+
+    <div id="overlay-pause" class="overlay hidden">
+      <div class="panel compact">
+        <h2>Pausa</h2>
+        <button id="btn-resume" type="button">Continuar</button>
+        <button id="btn-restart-pause" type="button" class="secondary">Reiniciar</button>
+      </div>
+    </div>
+
+    <div id="overlay-end" class="overlay hidden">
+      <div class="panel compact">
+        <h2 id="end-title">Fin</h2>
+        <p id="end-message"></p>
+        <button id="btn-retry" type="button">Reintentar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>

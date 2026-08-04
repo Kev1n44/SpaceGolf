@@ -1,0 +1,328 @@
+:root {
+  --ink: #e8f0ff;
+  --ink-dim: #9bb0d0;
+  --panel: rgba(8, 14, 32, 0.88);
+  --accent: #5ec8ff;
+  --accent-deep: #1a6fa8;
+  --danger: #ff5a5a;
+  --warn: #ff9a3c;
+  --ok: #4dE88a;
+  --safe: #b06dff;
+  --font-display: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+  --font-body: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050814;
+  font-family: var(--font-body);
+  color: var(--ink);
+  touch-action: none;
+}
+
+#game-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #050814;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: max(10px, env(safe-area-inset-top)) 14px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#hud-actions {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+#btn-pause,
+#btn-restart {
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(94, 200, 255, 0.45);
+  border-radius: 12px;
+  background: rgba(8, 14, 32, 0.75);
+  color: var(--ink);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#btn-restart {
+  font-size: 22px;
+  line-height: 1;
+}
+
+#hud-bars {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.bar-wrap {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.bar-wrap span {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+#power-bar,
+#air-bar {
+  width: 160px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(94, 200, 255, 0.4);
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+#power-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3ad1ff, #ffe566, #ff6b4a);
+  transition: none;
+}
+
+#air-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #7ad7ff, #b8f0ff);
+  transition: width 0.05s linear;
+}
+
+#air-wrap.empty #air-fill {
+  background: linear-gradient(90deg, #3a5a70, #4a7088);
+}
+
+#air-wrap.ready span {
+  color: #9be7ff;
+}
+
+/* Controles móviles */
+#mobile-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  z-index: 6;
+  pointer-events: none;
+}
+
+#dpad {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  pointer-events: auto;
+}
+
+.dpad-btn {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(94, 200, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(8, 14, 32, 0.72);
+  color: var(--ink);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.dpad-btn:active,
+.dpad-btn.active {
+  background: rgba(30, 90, 140, 0.9);
+}
+
+.dpad-btn[data-dir="up"] { top: 0; left: 44px; }
+.dpad-btn[data-dir="left"] { top: 44px; left: 0; }
+.dpad-btn[data-dir="right"] { top: 44px; right: 0; }
+.dpad-btn[data-dir="down"] { bottom: 0; left: 44px; }
+
+#btn-thrust {
+  pointer-events: auto;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 2px solid rgba(94, 200, 255, 0.55);
+  background: radial-gradient(circle at 35% 30%, #4ec4ff, #145a90 70%);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 40, 80, 0.45);
+}
+
+#btn-thrust:active,
+#btn-thrust.active {
+  transform: scale(0.96);
+  background: radial-gradient(circle at 35% 30%, #7ad8ff, #1a7ab8 70%);
+}
+
+#btn-thrust:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* Overlays */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 6, 18, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 20;
+  overflow-y: auto;
+}
+
+.panel {
+  width: min(520px, 100%);
+  background: var(--panel);
+  border: 1px solid rgba(94, 200, 255, 0.28);
+  border-radius: 18px;
+  padding: 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.panel.compact {
+  text-align: center;
+  width: min(380px, 100%);
+}
+
+.panel h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 7vw, 2.8rem);
+  letter-spacing: 0.04em;
+  background: linear-gradient(120deg, #9be7ff, #ffe9a8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitle {
+  margin: 6px 0 18px;
+  color: var(--ink-dim);
+  font-size: 0.95rem;
+}
+
+.instructions h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+
+.instructions ul {
+  margin: 0 0 22px;
+  padding-left: 18px;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.instructions li {
+  margin-bottom: 8px;
+}
+
+.panel button,
+.panel .secondary {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  color: #041018;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel .secondary {
+  background: transparent;
+  border: 1px solid rgba(94, 200, 255, 0.4);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+#end-title.win {
+  color: var(--ok);
+}
+
+#end-title.lose {
+  color: var(--danger);
+}
+
+#end-message {
+  color: var(--ink-dim);
+  line-height: 1.45;
+  margin: 8px 0 18px;
+}
+
+.c-red { color: var(--danger); font-weight: 600; }
+.c-orange { color: var(--warn); font-weight: 600; }
+.c-green { color: var(--ok); font-weight: 600; }
+.c-purple { color: var(--safe); font-weight: 600; }
+
+@media (min-width: 900px) {
+  #mobile-controls {
+    display: none !important;
+  }
+}
+
+@media (max-width: 899px) {
+  #mobile-controls:not(.hidden) {
+    display: flex;
+  }
+}
