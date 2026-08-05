@@ -85,6 +85,7 @@
     playH: 0,
     touchAiming: false,
     tip: { key: "", text: "", until: 0 },
+    launchFromStation: false,
   };
 
   function loadImages() {
@@ -544,7 +545,8 @@
 
   // ——— Input ———
   function beginCharge() {
-    if (state.phase !== Phase.AIM) return;
+    if (state.phase !== Phase.AIM && state.phase !== Phase.DOCKED) return;
+    state.launchFromStation = state.phase === Phase.DOCKED;
     state.phase = Phase.CHARGE;
     state.chargeStart = performance.now();
     state.power = 0;
@@ -554,14 +556,31 @@
   function releaseCharge() {
     if (state.phase !== Phase.CHARGE) return;
     const speed = state.power * maxLaunchSpeed();
+    const fromStation = state.launchFromStation;
     state.ship.vx = Math.cos(state.aimAngle) * speed;
     state.ship.vy = Math.sin(state.aimAngle) * speed;
     state.ship.angle = state.aimAngle;
+    if (fromStation) {
+      state.ship.dockGrace = 0.55;
+    }
+    state.launchFromStation = false;
     state.phase = Phase.FLY;
     els.powerWrap.classList.add("hidden");
     els.airWrap.classList.remove("hidden");
     updateAirBar();
     spawnExhaust(state.ship.x, state.ship.y, state.aimAngle + Math.PI, 12);
+  }
+
+  function getHostWorldVelocity(host) {
+    // Velocidad orbital del cuerpo alrededor de la estrella (planetas)
+    if (!isPlanetHost(host)) return { vx: 0, vy: 0 };
+    const ang = host.angle;
+    const omega = host.omega;
+    const r = host.orbitR;
+    return {
+      vx: -Math.sin(ang) * omega * r,
+      vy: Math.cos(ang) * omega * r,
+    };
   }
 
   function trySlingshot() {
@@ -582,14 +601,12 @@
       const fromStarX = host.x - state.star.x;
       const fromStarY = host.y - state.star.y;
       const fl = Math.hypot(fromStarX, fromStarY) || 1;
-      const fx = fromStarX / fl; // unitario estrella → planeta
+      const fx = fromStarX / fl;
       const fy = fromStarY / fl;
 
-      // Lado del aura verde que mira a la estrella (sin tocar el rojo del planeta)
       const ringR = host.red + (host.green - host.red) * 0.72;
       let launchDist = fl - ringR;
 
-      // Fuera del cinturón y de las auras de la estrella para que el recorrido se vea
       const beltOuter =
         (state.starBelt && state.starBelt.radius
           ? state.starBelt.radius
@@ -604,20 +621,25 @@
       ship.x = state.star.x + fx * launchDist;
       ship.y = state.star.y + fy * launchDist;
 
-      // Velocidad reducida hacia la estrella (más lenta en móvil para ver el recorrido)
       const speed = state.isMobile
         ? Math.min(Math.max(orbitalSpeed * 0.7, state.minDim * 0.024), state.minDim * 0.038)
         : Math.min(Math.max(orbitalSpeed * 0.85, state.minDim * 0.032), state.minDim * 0.048);
       vx = -fx * speed;
       vy = -fy * speed;
 
-      // Evitar recaptura inmediata del planeta al salir
+      // Física: hereda la velocidad orbital del planeta
+      const hv = getHostWorldVelocity(host);
+      vx += hv.vx;
+      vy += hv.vy;
+
       ship.orbitGrace = 0.7;
     } else {
-      // Desde aura verde de la estrella: salida tangencial más suave
+      // Propulsión de la estrella: magnitud fija (no sube con la órbita visual más rápida)
+      const propBase = 0.10;
+      const propOmega = Math.sign(omega || 1) * propBase * (state.minDim / Math.max(r, 1)) * 0.35;
       const exitScale = 0.55;
-      vx = -Math.sin(ship.orbitAngle) * omega * r * exitScale;
-      vy = Math.cos(ship.orbitAngle) * omega * r * exitScale;
+      vx = -Math.sin(ship.orbitAngle) * propOmega * r * exitScale;
+      vy = Math.cos(ship.orbitAngle) * propOmega * r * exitScale;
       const boost = Math.max(orbitCaptureSpeed() * 0.85, Math.hypot(vx, vy) * 0.08);
       vx += Math.cos(ship.orbitAngle) * boost;
       vy += Math.sin(ship.orbitAngle) * boost;
@@ -631,21 +653,6 @@
     state.phase = Phase.FLY;
     setThrustEnabled(true);
     spawnExhaust(ship.x, ship.y, ship.angle + Math.PI, 16);
-  }
-
-  function tryUndock() {
-    if (state.phase !== Phase.DOCKED) return;
-    const ship = state.ship;
-    const dock = getStationDockWorld();
-    // Sale en la dirección del tubo (hacia afuera)
-    const speed = state.minDim * 0.28;
-    ship.vx = Math.cos(dock.dir) * speed;
-    ship.vy = Math.sin(dock.dir) * speed;
-    ship.angle = dock.dir;
-    ship.dockGrace = 0.5;
-    state.phase = Phase.FLY;
-    setThrustEnabled(true);
-    spawnExhaust(ship.x, ship.y, dock.dir + Math.PI, 14);
   }
 
   function tryDock() {
@@ -669,9 +676,14 @@
     ship.vy = 0;
     ship.x = dock.x + Math.cos(dock.dir) * (ship.r * 0.15);
     ship.y = dock.y + Math.sin(dock.dir) * (ship.r * 0.15);
-    ship.angle = dock.dir;
+    // Apuntar inicialmente hacia el área segura
+    state.aimAngle = Math.atan2(state.safe.y - ship.y, state.safe.x - ship.x);
+    ship.angle = state.aimAngle;
+    state.launchFromStation = false;
     state.phase = Phase.DOCKED;
     setThrustEnabled(true);
+    els.airWrap.classList.add("hidden");
+    els.powerWrap.classList.add("hidden");
     return true;
   }
 
@@ -787,14 +799,15 @@
     ship.orbitR = r;
     ship.orbitAngle = Math.atan2(dy, dx);
 
-    // Estrella → un poco más rápida que planetas; planetas → más lenta
+    // Estrella → órbita visual un poco más rápida; planetas más lentos
+    // (la propulsión de la estrella usa magnitud fija aparte)
     let base;
     if (isPlanetHost(host)) {
       base = 0.045;
     } else if (kind === "orange") {
-      base = 0.08;
+      base = 0.13;
     } else {
-      base = 0.10;
+      base = 0.16;
     }
     const cross = dx * ship.vy - dy * ship.vx;
     const dir = cross >= 0 ? 1 : -1;
@@ -819,8 +832,12 @@
       els.powerFill.style.width = (state.power * 100).toFixed(1) + "%";
     }
 
-    // Apuntado con flechas en fase AIM
-    if (state.phase === Phase.AIM) {
+    // Apuntado con flechas en AIM, atracado o mientras carga fuerza
+    if (
+      state.phase === Phase.AIM ||
+      state.phase === Phase.DOCKED ||
+      state.phase === Phase.CHARGE
+    ) {
       const turn = 2.4 * dt;
       if (state.keys.left) state.aimAngle -= turn;
       if (state.keys.right) state.aimAngle += turn;
@@ -905,15 +922,17 @@
       }
     }
 
-    // Atracado en estación: sigue el tubo
-    if (state.phase === Phase.DOCKED) {
+    // Atracado en estación: sigue el tubo y permite apuntar / cargar fuerza
+    if (state.phase === Phase.DOCKED || (state.phase === Phase.CHARGE && state.launchFromStation)) {
       const ship = state.ship;
       const dock = getStationDockWorld();
       ship.x = dock.x + Math.cos(dock.dir) * (ship.r * 0.15);
       ship.y = dock.y + Math.sin(dock.dir) * (ship.r * 0.15);
-      ship.angle = dock.dir;
       ship.vx = 0;
       ship.vy = 0;
+      if (state.phase === Phase.DOCKED) {
+        ship.angle = state.aimAngle;
+      }
     }
 
     // Vuelo libre — la orientación se mantiene (no sigue la velocidad → no curva visual)
@@ -1073,7 +1092,11 @@
     drawParticles();
 
     if (state.ship && (state.ship.alive || state.won)) {
-      if (state.phase === Phase.AIM || state.phase === Phase.CHARGE) {
+      if (
+        state.phase === Phase.AIM ||
+        state.phase === Phase.DOCKED ||
+        state.phase === Phase.CHARGE
+      ) {
         drawAimArrow();
       }
       drawShip();
@@ -1106,8 +1129,16 @@
     }
     if (state.phase === Phase.DOCKED) {
       return {
-        key: "docked",
-        text: "Atracado en la estación — Espacio / Propulsión hacia el área segura",
+        key: "docked_aim",
+        text: state.isMobile
+          ? "Atracado — apunta y mantén Propulsión para cargar fuerza hacia el área segura"
+          : "Atracado — apunta y mantén Espacio para cargar fuerza hacia el área segura",
+      };
+    }
+    if (state.phase === Phase.CHARGE && state.launchFromStation) {
+      return {
+        key: "docked_charge",
+        text: "Suelta en el momento deseado para lanzarte al área segura",
       };
     }
     if (state.phase === Phase.FLY) {
@@ -1499,9 +1530,8 @@
       if (!state.spaceWasDown) {
         state.spaceWasDown = true;
         state.keys.space = true;
-        if (state.phase === Phase.AIM) beginCharge();
+        if (state.phase === Phase.AIM || state.phase === Phase.DOCKED) beginCharge();
         else if (state.phase === Phase.ORBIT_SLING) trySlingshot();
-        else if (state.phase === Phase.DOCKED) tryUndock();
       }
     }
     if (e.key === "p" || e.key === "P" || e.key === "Escape") {
@@ -1535,7 +1565,13 @@
 
   // Apuntar con mouse / touch en canvas
   function aimFromPointer(clientX, clientY) {
-    if (state.phase !== Phase.AIM && state.phase !== Phase.CHARGE) return;
+    if (
+      state.phase !== Phase.AIM &&
+      state.phase !== Phase.CHARGE &&
+      state.phase !== Phase.DOCKED
+    ) {
+      return;
+    }
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -1544,7 +1580,7 @@
   }
 
   canvas.addEventListener("pointerdown", (e) => {
-    if (state.phase === Phase.AIM) {
+    if (state.phase === Phase.AIM || state.phase === Phase.DOCKED) {
       state.touchAiming = true;
       aimFromPointer(e.clientX, e.clientY);
     }
@@ -1552,7 +1588,7 @@
   canvas.addEventListener("pointermove", (e) => {
     if (state.touchAiming || e.buttons === 1) {
       aimFromPointer(e.clientX, e.clientY);
-    } else if (state.phase === Phase.AIM && !state.isMobile) {
+    } else if ((state.phase === Phase.AIM || state.phase === Phase.DOCKED) && !state.isMobile) {
       aimFromPointer(e.clientX, e.clientY);
     }
   });
@@ -1584,9 +1620,8 @@
   const thrustDown = (e) => {
     e.preventDefault();
     els.btnThrust.classList.add("active");
-    if (state.phase === Phase.AIM) beginCharge();
+    if (state.phase === Phase.AIM || state.phase === Phase.DOCKED) beginCharge();
     else if (state.phase === Phase.ORBIT_SLING) trySlingshot();
-    else if (state.phase === Phase.DOCKED) tryUndock();
   };
   const thrustUp = (e) => {
     e.preventDefault();
