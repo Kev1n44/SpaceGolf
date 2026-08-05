@@ -80,11 +80,19 @@ html, body {
   color: var(--ink);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #btn-restart {
   font-size: 22px;
-  line-height: 1;
+  text-align: center;
 }
 
 #hud-bars {
@@ -148,11 +156,29 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  min-height: var(--controls-h, 188px);
+  height: var(--controls-h, max(188px, 24dvh));
+  padding: 18px max(18px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   z-index: 6;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(5, 8, 20, 0.15) 0%, rgba(5, 8, 20, 0.92) 16%, #050814 42%);
+  border-top: 1px solid rgba(94, 200, 255, 0.18);
+  box-shadow: inset 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+#mobile-controls::before {
+  content: "CONTROLES";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(155, 176, 208, 0.55);
   pointer-events: none;
 }
 
@@ -161,6 +187,7 @@ html, body {
   width: 132px;
   height: 132px;
   pointer-events: auto;
+  margin-top: 12px;
 }
 
 .dpad-btn {
@@ -173,6 +200,13 @@ html, body {
   color: var(--ink);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dpad-btn:active,
@@ -199,6 +233,16 @@ html, body {
   letter-spacing: 0.04em;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(0, 40, 80, 0.45);
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 
 #btn-thrust:active,
@@ -210,6 +254,12 @@ html, body {
 #btn-thrust:disabled {
   opacity: 0.35;
   pointer-events: none;
+}
+
+.thrust-label {
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Overlays */
@@ -396,18 +446,54 @@ html, body {
   }
 
   .instructions-scroll {
-    /* Asegura espacio de scroll en pantallas bajas */
     max-height: none;
   }
 
-  #btn-thrust {
+  #hud {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  #btn-pause,
+  #btn-restart {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  #btn-restart {
+    font-size: 18px;
+  }
+
+  #hud-bars {
+    gap: 6px;
+  }
+
+  .bar-wrap {
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .bar-wrap span {
+    font-size: 9px;
+  }
+
+  #power-bar,
+  #air-bar {
     width: 96px;
-    height: 96px;
+    height: 8px;
+  }
+
+  #btn-thrust {
+    width: 100px;
+    height: 100px;
+    font-size: 10px;
   }
 
   #dpad {
-    width: 120px;
-    height: 120px;
+    width: 124px;
+    height: 124px;
   }
 
   .dpad-btn {
@@ -415,10 +501,17 @@ html, body {
     height: 40px;
   }
 
-  .dpad-btn[data-dir="up"] { left: 40px; }
-  .dpad-btn[data-dir="left"] { top: 40px; }
-  .dpad-btn[data-dir="right"] { top: 40px; }
-  .dpad-btn[data-dir="down"] { left: 40px; }
+  .dpad-btn[data-dir="up"] { left: 42px; }
+  .dpad-btn[data-dir="left"] { top: 42px; }
+  .dpad-btn[data-dir="right"] { top: 42px; }
+  .dpad-btn[data-dir="down"] { left: 42px; }
+}
+
+@media (max-width: 899px) and (min-height: 740px) {
+  #mobile-controls {
+    min-height: var(--controls-h, 210px);
+    height: var(--controls-h, max(210px, 26dvh));
+  }
 }
 
 @media (max-height: 700px) {

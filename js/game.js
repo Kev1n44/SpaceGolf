@@ -80,6 +80,9 @@
     won: false,
     endReason: "",
     isMobile: false,
+    isPortraitMobile: false,
+    controlsH: 0,
+    playH: 0,
     touchAiming: false,
     tip: { key: "", text: "", until: 0 },
   };
@@ -123,8 +126,17 @@
     canvas.style.width = state.w + "px";
     canvas.style.height = state.h + "px";
     ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
-    state.minDim = Math.min(state.w, state.h);
     state.isMobile = window.matchMedia("(max-width: 899px)").matches || "ontouchstart" in window;
+    state.isPortraitMobile = state.isMobile && state.h > state.w * 1.05;
+    // Zona de controles en móvil (debe coincidir con CSS)
+    state.controlsH = state.isMobile
+      ? Math.round(Math.max(188, Math.min(236, state.h * (state.isPortraitMobile ? 0.26 : 0.22))))
+      : 0;
+    state.playH = state.h - state.controlsH;
+    document.documentElement.style.setProperty("--controls-h", state.controlsH + "px");
+    state.minDim = state.isPortraitMobile
+      ? Math.min(state.w, state.playH * 0.72)
+      : Math.min(state.w, state.h);
     if (state.phase !== Phase.MENU && state.phase !== Phase.END) {
       layoutWorld(false);
     }
@@ -133,14 +145,18 @@
   function layoutWorld(resetDynamic) {
     const m = state.minDim;
     const cx = state.w * 0.5;
-    const cy = state.h * 0.52;
+    const playH = state.playH || state.h;
+    // En móvil alto: repartir mejor el escenario vertical (arriba del panel de controles)
+    const cy = state.isPortraitMobile ? playH * 0.46 : state.h * 0.52;
 
-    const shipR = m * 0.016;
-    const starR = m * 0.040;
-    const planetR = m * 0.020;
-    const asteroidR = m * 0.018;
+    // Elementos un poco más grandes en móvil vertical para aprovechar altura
+    const sizeBoost = state.isPortraitMobile ? 1.18 : 1;
+    const shipR = m * 0.016 * sizeBoost;
+    const starR = m * 0.040 * sizeBoost;
+    const planetR = m * 0.020 * sizeBoost;
+    const asteroidR = m * 0.018 * sizeBoost;
     const safeR = shipR * 2.05;
-    const rockR = m * 0.015;
+    const rockR = m * 0.015 * sizeBoost;
 
     const starRed = starR * 1.12;
     const starOrange = starR * 1.45;
@@ -151,8 +167,12 @@
     const planet2Red = planet2R * 1.12;
     const planet2Green = planet2R * 1.50;
 
-    const safeY = Math.max(safeR + 24, state.h * 0.075);
-    const shipStartY = Math.min(state.h - shipR - (state.isMobile ? 170 : 70), state.h * 0.91);
+    const safeY = state.isPortraitMobile
+      ? Math.max(safeR + 18, playH * 0.065)
+      : Math.max(safeR + 24, state.h * 0.075);
+    const shipStartY = state.isMobile
+      ? playH - shipR - 10
+      : Math.min(state.h - shipR - 70, state.h * 0.91);
     const clearance = m * 0.05;
 
     // Espacio máximo para el planeta exterior sin tocar spawn ni área segura
@@ -1181,24 +1201,61 @@
   }
 
   function drawBanner(text) {
-    const padX = 16;
-    const y = state.h * 0.16;
+    const mobile = state.isMobile;
+    const maxTextW = mobile
+      ? Math.min(state.w * 0.7, 240)
+      : Math.min(state.w * 0.72, 420);
+    const fontSize = mobile
+      ? Math.max(10, Math.min(12, state.minDim * 0.02))
+      : Math.max(12, state.minDim * 0.028);
+    const padX = mobile ? 10 : 16;
+    const padY = mobile ? 7 : 10;
+    const lineGap = fontSize * 1.2;
+    const yBase = mobile
+      ? Math.max(52, (state.playH || state.h) * 0.11)
+      : state.h * 0.16;
+
     ctx.save();
-    ctx.font = `600 ${Math.max(12, state.minDim * 0.028)}px Avenir Next, Segoe UI, sans-serif`;
-    const tw = ctx.measureText(text).width;
-    const bw = tw + padX * 2;
-    const bh = Math.max(28, state.minDim * 0.05);
+    ctx.font = `600 ${fontSize}px Avenir Next, Segoe UI, sans-serif`;
+
+    // Partir en líneas cortas para un cuadro compacto
+    const words = text.split(" ");
+    const lines = [];
+    let current = "";
+    for (const word of words) {
+      const test = current ? current + " " + word : word;
+      if (ctx.measureText(test).width > maxTextW && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+
+    let contentW = 0;
+    for (const line of lines) {
+      contentW = Math.max(contentW, ctx.measureText(line).width);
+    }
+    const bw = contentW + padX * 2;
+    const bh = lines.length * lineGap + padY * 2;
     const bx = (state.w - bw) / 2;
-    ctx.fillStyle = "rgba(6, 12, 28, 0.62)";
-    ctx.strokeStyle = "rgba(94, 200, 255, 0.3)";
+    const by = yBase - bh / 2;
+
+    ctx.fillStyle = "rgba(6, 12, 28, 0.78)";
+    ctx.strokeStyle = "rgba(94, 200, 255, 0.35)";
     ctx.lineWidth = 1;
-    roundRect(bx, y - bh / 2, bw, bh, 10);
+    roundRect(bx, by, bw, bh, mobile ? 8 : 10);
     ctx.fill();
     ctx.stroke();
+
     ctx.fillStyle = "rgba(220, 235, 255, 0.95)";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(text, state.w / 2, y);
+    const startY = yBase - ((lines.length - 1) * lineGap) / 2;
+    lines.forEach((line, i) => {
+      ctx.fillText(line, state.w / 2, startY + i * lineGap);
+    });
     ctx.restore();
   }
 
@@ -1538,6 +1595,8 @@
   els.btnThrust.addEventListener("pointerup", thrustUp);
   els.btnThrust.addEventListener("pointerleave", thrustUp);
   els.btnThrust.addEventListener("pointercancel", thrustUp);
+  els.btnThrust.addEventListener("contextmenu", (e) => e.preventDefault());
+  els.btnThrust.addEventListener("selectstart", (e) => e.preventDefault());
 
   els.btnStart.addEventListener("click", startGame);
   els.btnPause.addEventListener("click", pauseGame);
