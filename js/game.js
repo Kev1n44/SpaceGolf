@@ -179,8 +179,9 @@
       : Math.min(state.h - shipR - 70, state.h * 0.91);
     const clearance = m * 0.05;
 
-    // Espacio máximo para el planeta exterior sin tocar spawn ni área segura
-    const maxReachUp = Math.abs(cy - safeY) - safeR - clearance;
+    // Espacio máximo: planeta 1 no debe chocar con el cinturón del área segura
+    const safeBeltClear = safeBeltR + rockR * 1.7 + (state.isMobile ? m * 0.045 : clearance);
+    const maxReachUp = Math.abs(cy - safeY) - safeBeltClear;
     const maxReachDown = Math.abs(shipStartY - cy) - shipR - clearance;
     const maxPlanetCenter = Math.min(maxReachUp, maxReachDown) - planetGreen;
 
@@ -189,10 +190,12 @@
     let starBeltR = starGreen + m * 0.02;
     const auraClearance = planetGreen + planet2Green + m * 0.018;
 
-    // En celular: planetas más lejos de la estrella para ver el recorrido al impulsarse
-    const planetGapFromBelt = state.isMobile ? m * 0.07 : m * 0.008;
+    // En celular: planeta 2 un poco más lejos del cinturón estelar
+    const planetGapFromBelt = state.isMobile ? m * 0.11 : m * 0.008;
     let planet2OrbitR = starBeltR + starBeltThick + planet2Green + planetGapFromBelt;
-    let planetOrbitR = planet2OrbitR + auraClearance + (state.isMobile ? m * 0.02 : 0);
+    // Planeta 1 más abajo (órbita un poco menor) para no rozar el área segura
+    let planetOrbitR =
+      planet2OrbitR + auraClearance + (state.isMobile ? m * 0.008 : 0);
 
     // Si no cabe el exterior, comprimir manteniendo separación de auras
     if (planetOrbitR > maxPlanetCenter) {
@@ -200,10 +203,18 @@
       planet2OrbitR = planetOrbitR - auraClearance;
       if (planet2OrbitR - planet2Green < starBeltR + starBeltThick) {
         starBeltR = Math.max(starGreen + m * 0.02, planet2OrbitR - planet2Green - starBeltThick - m * 0.008);
-        planet2OrbitR = starBeltR + starBeltThick + planet2Green + m * 0.006;
-        planetOrbitR = planet2OrbitR + auraClearance;
+        planet2OrbitR = starBeltR + starBeltThick + planet2Green + (state.isMobile ? m * 0.04 : m * 0.006);
+        planetOrbitR = Math.min(planet2OrbitR + auraClearance, maxPlanetCenter);
       }
     }
+
+    // Más cerca de la estrella → órbita angular más lenta (y velocidad lineal menor)
+    const planetOmega = (orbitR, sign) => {
+      const ref = m * 0.34;
+      const factor = Math.pow(Math.max(0.4, orbitR / ref), 1.35);
+      const base = state.isMobile ? 0.26 : 0.34;
+      return sign * base * factor;
+    };
 
     if (!state.star || resetDynamic) {
       state.star = {
@@ -232,7 +243,7 @@
         r: planetR,
         red: planetRed,
         green: planetGreen,
-        omega: 0.42,
+        omega: planetOmega(planetOrbitR, 1),
         x: 0,
         y: 0,
       };
@@ -241,9 +252,10 @@
       state.planet.r = planetR;
       state.planet.red = planetRed;
       state.planet.green = planetGreen;
+      state.planet.omega = planetOmega(planetOrbitR, Math.sign(state.planet.omega) || 1);
     }
 
-    // Planeta 2: órbita interior (más arriba/cerca de la estrella), sentido contrario
+    // Planeta 2: órbita interior (más cerca de la estrella), sentido contrario
     if (!state.planet2 || resetDynamic) {
       state.planet2 = {
         angle: Math.PI * 1.1,
@@ -251,7 +263,7 @@
         r: planet2R,
         red: planet2Red,
         green: planet2Green,
-        omega: -0.42,
+        omega: planetOmega(planet2OrbitR, -1),
         x: 0,
         y: 0,
       };
@@ -260,6 +272,7 @@
       state.planet2.r = planet2R;
       state.planet2.red = planet2Red;
       state.planet2.green = planet2Green;
+      state.planet2.omega = planetOmega(planet2OrbitR, Math.sign(state.planet2.omega) || -1);
     }
     updateAllPlanetPos();
 
@@ -591,7 +604,6 @@
     const host = ship.orbitHost.ref;
     const omega = ship.orbitOmega;
     const r = ship.orbitR;
-    const orbitalSpeed = Math.abs(omega) * r;
 
     let vx;
     let vy;
@@ -604,35 +616,31 @@
       const fx = fromStarX / fl;
       const fy = fromStarY / fl;
 
-      const ringR = host.red + (host.green - host.red) * 0.72;
-      let launchDist = fl - ringR;
-
-      const beltOuter =
-        (state.starBelt && state.starBelt.radius
-          ? state.starBelt.radius
-          : state.star.green + state.minDim * 0.045) +
-        state.minDim * 0.04;
-      const minStarDist = Math.max(
-        state.star.green + ship.r + state.minDim * 0.06,
-        beltOuter + ship.r + state.minDim * 0.02
+      // Salir desde el borde verde del planeta (recorrido visible; evita teletransporte
+      // al cinturón/estrella cuando el planeta está cerca)
+      const placeR = Math.max(
+        fl - host.green - ship.r * 0.55,
+        state.star.green + ship.r + state.minDim * 0.08
       );
-      if (launchDist < minStarDist) launchDist = minStarDist;
+      ship.x = state.star.x + fx * placeR;
+      ship.y = state.star.y + fy * placeR;
 
-      ship.x = state.star.x + fx * launchDist;
-      ship.y = state.star.y + fy * launchDist;
-
+      // Más cerca de la estrella → propulsión más lenta (gravedad)
+      const distNorm = fl / Math.max(state.minDim, 1);
+      const distFactor = Math.pow(Math.max(0.35, Math.min(1.35, distNorm / 0.36)), 1.1);
       const speed = state.isMobile
-        ? Math.min(Math.max(orbitalSpeed * 0.7, state.minDim * 0.024), state.minDim * 0.038)
-        : Math.min(Math.max(orbitalSpeed * 0.85, state.minDim * 0.032), state.minDim * 0.048);
+        ? state.minDim * Math.min(0.022, Math.max(0.009, 0.008 + 0.011 * distFactor))
+        : state.minDim * Math.min(0.036, Math.max(0.014, 0.012 + 0.016 * distFactor));
       vx = -fx * speed;
       vy = -fy * speed;
 
-      // Física: hereda la velocidad orbital del planeta
+      // Física: hereda parte de la velocidad orbital del planeta
       const hv = getHostWorldVelocity(host);
-      vx += hv.vx;
-      vy += hv.vy;
+      const inherit = state.isMobile ? 0.45 : 0.75;
+      vx += hv.vx * inherit;
+      vy += hv.vy * inherit;
 
-      ship.orbitGrace = 0.7;
+      ship.orbitGrace = 0.85;
     } else {
       // Propulsión de la estrella: magnitud fija (no sube con la órbita visual más rápida)
       const propBase = 0.10;
