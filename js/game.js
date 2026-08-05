@@ -157,6 +157,7 @@
     const asteroidR = m * 0.018 * sizeBoost;
     const safeR = shipR * 2.05;
     const rockR = m * 0.015 * sizeBoost;
+    const safeBeltR = safeR + m * 0.055;
 
     const starRed = starR * 1.12;
     const starOrange = starR * 1.45;
@@ -167,8 +168,10 @@
     const planet2Red = planet2R * 1.12;
     const planet2Green = planet2R * 1.50;
 
+    // En móvil: bajar el área segura para que su cinturón no se corte arriba (HUD + notch)
+    const topPad = state.isMobile ? Math.max(56, state.h * 0.06) : 28;
     const safeY = state.isPortraitMobile
-      ? Math.max(safeR + 18, playH * 0.065)
+      ? Math.max(safeBeltR + rockR * 1.6 + topPad, playH * 0.13)
       : Math.max(safeR + 24, state.h * 0.075);
     const shipStartY = state.isMobile
       ? playH - shipR - 10
@@ -180,14 +183,15 @@
     const maxReachDown = Math.abs(shipStartY - cy) - shipR - clearance;
     const maxPlanetCenter = Math.min(maxReachUp, maxReachDown) - planetGreen;
 
-    // Cinturón → Planeta 2 (interior) → hueco de auras → Planeta 1 (exterior)
-    // Más cerca del cinturón y entre sí (sin tocar auras) → más lejos de nave/estación
+    // Cinturón → Planeta 2 → Planeta 1
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
     const auraClearance = planetGreen + planet2Green + m * 0.018;
 
-    let planet2OrbitR = starBeltR + starBeltThick + planet2Green + m * 0.008;
-    let planetOrbitR = planet2OrbitR + auraClearance;
+    // En celular: planetas más lejos de la estrella para ver el recorrido al impulsarse
+    const planetGapFromBelt = state.isMobile ? m * 0.07 : m * 0.008;
+    let planet2OrbitR = starBeltR + starBeltThick + planet2Green + planetGapFromBelt;
+    let planetOrbitR = planet2OrbitR + auraClearance + (state.isMobile ? m * 0.02 : 0);
 
     // Si no cabe el exterior, comprimir manteniendo separación de auras
     if (planetOrbitR > maxPlanetCenter) {
@@ -312,7 +316,6 @@
 
     // Cinturón parcial del área segura: hueco hacia la estación; gira despacio
     const toStation = Math.atan2(state.station.y - state.safe.y, state.station.x - state.safe.x);
-    const safeBeltR = safeR + m * 0.055;
     const gapHalf = 0.42;
     const safeHoles = [{ center: toStation, width: gapHalf * 2 }];
     state.safeBelt = buildBeltRocks(state.safe.x, state.safe.y, safeBeltR, safeHoles, 22, rockR * 0.9, true);
@@ -601,11 +604,10 @@
       ship.x = state.star.x + fx * launchDist;
       ship.y = state.star.y + fy * launchDist;
 
-      // Velocidad reducida hacia la estrella
-      const speed = Math.min(
-        Math.max(orbitalSpeed * 0.85, state.minDim * 0.032),
-        state.minDim * 0.048
-      );
+      // Velocidad reducida hacia la estrella (más lenta en móvil para ver el recorrido)
+      const speed = state.isMobile
+        ? Math.min(Math.max(orbitalSpeed * 0.7, state.minDim * 0.024), state.minDim * 0.038)
+        : Math.min(Math.max(orbitalSpeed * 0.85, state.minDim * 0.032), state.minDim * 0.048);
       vx = -fx * speed;
       vy = -fy * speed;
 
@@ -1611,6 +1613,10 @@
     resetLevel();
   });
   els.btnRetry.addEventListener("click", resetLevel);
+
+  // Evitar selección de texto en toda la app (móvil)
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+  document.addEventListener("gesturestart", (e) => e.preventDefault());
 
   // Evitar scroll / gestos en el canvas durante el juego,
   // pero permitir desplazamiento en overlays (instrucciones, pausa, fin)

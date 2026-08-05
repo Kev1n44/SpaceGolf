@@ -15,7 +15,9 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 html, body {
@@ -103,12 +105,26 @@ html, body {
 }
 
 .bar-wrap {
-  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
   min-width: 140px;
+}
+
+.bar-wrap,
+.bar-wrap span,
+#hud,
+#hud * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  pointer-events: none;
+}
+
+#hud-actions,
+#hud-actions * {
+  pointer-events: auto;
 }
 
 .bar-wrap span {
@@ -302,9 +318,35 @@ html, body {
 
 .panel.compact {
   text-align: center;
-  width: min(380px, 100%);
+  width: fit-content;
+  max-width: min(300px, 86vw);
   max-height: none;
   display: block;
+  padding: 16px 18px;
+  margin: 0 auto;
+}
+
+#end-title {
+  margin: 0 0 4px;
+  font-size: clamp(1.15rem, 5vw, 1.45rem);
+}
+
+#end-message {
+  color: var(--ink-dim);
+  line-height: 1.4;
+  margin: 6px 0 12px;
+  font-size: clamp(0.82rem, 3.5vw, 0.92rem);
+}
+
+.panel.compact h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.15rem, 5vw, 1.4rem);
+}
+
+.panel.compact button {
+  padding: 11px 16px;
+  font-size: 0.95rem;
+  margin-top: 8px;
 }
 
 .panel h1 {
@@ -411,12 +453,6 @@ html, body {
   color: var(--danger);
 }
 
-#end-message {
-  color: var(--ink-dim);
-  line-height: 1.45;
-  margin: 8px 0 18px;
-}
-
 .c-red { color: var(--danger); font-weight: 600; }
 .c-orange { color: var(--warn); font-weight: 600; }
 .c-green { color: var(--ok); font-weight: 600; }
@@ -434,8 +470,19 @@ html, body {
   }
 
   .overlay {
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
+  }
+
+  #overlay-end,
+  #overlay-pause {
+    align-items: center;
+  }
+
+  .panel.compact {
+    width: fit-content;
+    max-width: min(280px, 82vw);
+    padding: 14px 16px;
   }
 
   .panel-start {
