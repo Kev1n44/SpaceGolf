@@ -340,12 +340,12 @@
       state.station.dockR = shipR * 1.35;
     }
 
-    // Agujeros del cinturón estelar: izquierda y superior-derecha
-    // Mismo tamaño de anillo y agujeros; menos rocas = más separación entre ellas
+    // Agujeros del cinturón estelar: izquierda, superior-derecha e inferior
     const holePad = ((Math.PI * 2) / 36) * 2;
     const starHoles = [
       { center: Math.PI, width: 0.62 + holePad },
       { center: -Math.PI * 0.28, width: 0.55 + holePad },
+      { center: Math.PI / 2, width: 0.68 + holePad },
     ];
     state.starBelt = buildBeltRocks(cx, cy, starBeltR, starHoles, 24, rockR, true);
     state.starBelt.orbitOmega = 0;
