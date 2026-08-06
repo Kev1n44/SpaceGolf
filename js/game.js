@@ -183,56 +183,64 @@
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
     const starBeltOuter = starBeltR + starBeltThick;
-    const auraClearance = planetGreen + planet2Green + m * 0.024;
+    const auraGap = planetGreen + planet2Green + m * 0.028;
 
     // Distancia estrella → borde inferior del cinturón seguro
-    const safeBeltUnderside = (cy - safeY) - safeBeltR - rockR * 1.55;
-    // Corredor entre cinturones (dejar margen hacia la estación / área segura)
-    const corridorLo = starBeltOuter + planet2Green + m * 0.01;
-    const corridorHi = safeBeltUnderside - planetGreen - m * 0.04;
-    const corridorSpan = Math.max(m * 0.02, corridorHi - corridorLo);
+    const safeBeltUnderside = (cy - safeY) - safeBeltR - rockR * 1.6;
+    const corridorLo = starBeltOuter + planet2Green + m * 0.008;
+    const corridorHi = safeBeltUnderside - planetGreen - m * 0.035;
+    const corridorSpan = Math.max(m * 0.015, corridorHi - corridorLo);
 
-    // Abajo y lados: aprovechar espacio disponible
+    // Abajo y lados: aprovechar espacio (como en el boceto)
     const maxReachDown =
-      Math.abs(shipStartY - cy) - shipR - clearance * 0.45 - planetGreen;
-    const maxReachSide = state.w * 0.5 - planetGreen - m * 0.03;
+      Math.abs(shipStartY - cy) - shipR - clearance * 0.35 - planetGreen;
+    const maxReachSide = state.w * 0.5 - planetGreen - m * 0.025;
     const reachWide = Math.min(maxReachDown, maxReachSide);
 
-    // Periastro en la mitad baja del corredor (más lejos de la estación)
-    let p2Min = corridorLo + corridorSpan * 0.12;
-    let p1Min = corridorLo + corridorSpan * 0.48;
-    if (p1Min < p2Min + auraClearance) {
-      p1Min = Math.min(corridorHi, p2Min + auraClearance);
-      p2Min = Math.max(corridorLo, p1Min - auraClearance);
-    }
-    p1Min = Math.min(p1Min, corridorHi);
-    p2Min = Math.min(p2Min, p1Min - auraClearance * 0.85);
-    p2Min = Math.max(p2Min, corridorLo);
-
-    // Apoastro suave (elipse armónica, sin “corazón”)
-    let p2Max = Math.min(reachWide * 0.78, p2Min + (state.isMobile ? m * 0.18 : m * 0.12));
-    let p1Max = Math.min(reachWide * 0.98, Math.max(p1Min + m * 0.1, p2Max + auraClearance));
-    if (p1Max - p2Max < auraClearance) {
-      p2Max = Math.max(p2Min + m * 0.05, p1Max - auraClearance);
+    // Elipses Keplerianas anidadas (misma e) → nunca se cruzan, movimiento armónico
+    // Periastro arriba (corredor); apoastro abajo/lados más abiertos
+    let p2Min = corridorLo + corridorSpan * 0.18;
+    let p2Max = Math.min(reachWide * 0.82, p2Min + (state.isMobile ? m * 0.2 : m * 0.14));
+    if (p2Min > corridorHi - auraGap * 0.5) {
+      p2Min = Math.max(corridorLo, corridorHi - auraGap * 0.85);
+      p2Max = Math.max(p2Min + m * 0.08, Math.min(p2Max, reachWide * 0.8));
     }
 
-    // Órbita angular: más rápida que antes, pero menor que la sensación de la estrella
+    // Misma excentricidad + semi-ejes escalados ⇒ órbitas concéntricas sin cruces
+    const eShared = Math.min(
+      0.38,
+      Math.max(0.12, (p2Max - p2Min) / Math.max(p2Max + p2Min, 1))
+    );
+    const a2 = (p2Min + p2Max) * 0.5;
+    const a1 = a2 + auraGap / Math.max(1 - eShared, 0.55);
+    const p1Min = a1 * (1 - eShared);
+    const p1Max = a1 * (1 + eShared);
+    // Si el periastro exterior sale del corredor, comprimir ambas
+    let a2Use = a2;
+    let a1Use = a1;
+    if (p1Min > corridorHi) {
+      const targetP1Min = corridorHi;
+      a1Use = targetP1Min / (1 - eShared);
+      a2Use = Math.max(corridorLo / (1 - eShared), a1Use - auraGap / (1 - eShared));
+    }
+
+    // Periastro ligeramente a la izquierda del zenit → pasa lejos de la estación (derecha)
+    const periapsis = -Math.PI / 2 - 0.22;
+
     const planetOmega = (sign, inner) => {
-      const base = state.isMobile ? (inner ? 0.62 : 0.52) : inner ? 0.72 : 0.6;
+      const base = state.isMobile ? (inner ? 0.58 : 0.48) : inner ? 0.68 : 0.56;
       return sign * base;
     };
 
-    const assignOrbitOval = (planet, rMin, rMax) => {
-      // Elipse desplazada: más cerca arriba, más lejos abajo/lados — forma ovalada suave
-      const b = (rMin + rMax) * 0.5;
-      const c = (rMax - rMin) * 0.5;
-      const a = Math.sqrt(Math.max(b * b, rMax * rMax - c * c)) * 1.02;
-      planet.orbitRMin = rMin;
-      planet.orbitRMax = rMax;
+    const assignKeplerOrbit = (planet, a, e) => {
       planet.orbitA = a;
-      planet.orbitB = b;
-      planet.orbitC = c;
-      planet.orbitR = rMin;
+      planet.orbitE = e;
+      planet.orbitPeri = periapsis;
+      planet.orbitRMin = a * (1 - e);
+      planet.orbitRMax = a * (1 + e);
+      planet.orbitB = null;
+      planet.orbitC = null;
+      planet.orbitR = planet.orbitRMin;
     };
 
     if (!state.star || resetDynamic) {
@@ -257,13 +265,13 @@
 
     if (!state.planet || resetDynamic) {
       state.planet = {
-        angle: Math.PI * 0.15,
-        orbitR: p1Min,
-        orbitRMin: p1Min,
-        orbitRMax: p1Max,
-        orbitA: p1Max,
-        orbitB: p1Min,
-        orbitC: 0,
+        angle: Math.PI * 0.2,
+        orbitR: a1Use * (1 - eShared),
+        orbitRMin: a1Use * (1 - eShared),
+        orbitRMax: a1Use * (1 + eShared),
+        orbitA: a1Use,
+        orbitE: eShared,
+        orbitPeri: periapsis,
         r: planetR,
         red: planetRed,
         green: planetGreen,
@@ -277,18 +285,18 @@
       state.planet.green = planetGreen;
       state.planet.omega = planetOmega(Math.sign(state.planet.omega) || 1, false);
     }
-    assignOrbitOval(state.planet, p1Min, p1Max);
+    assignKeplerOrbit(state.planet, a1Use, eShared);
 
-    // Planeta 2: elipse interior, sentido contrario
+    // Planeta 2: órbita interior concéntrica, sentido contrario
     if (!state.planet2 || resetDynamic) {
       state.planet2 = {
-        angle: Math.PI * 1.1,
-        orbitR: p2Min,
-        orbitRMin: p2Min,
-        orbitRMax: p2Max,
-        orbitA: p2Max,
-        orbitB: p2Min,
-        orbitC: 0,
+        angle: Math.PI * 1.15,
+        orbitR: a2Use * (1 - eShared),
+        orbitRMin: a2Use * (1 - eShared),
+        orbitRMax: a2Use * (1 + eShared),
+        orbitA: a2Use,
+        orbitE: eShared,
+        orbitPeri: periapsis,
         r: planet2R,
         red: planet2Red,
         green: planet2Green,
@@ -302,7 +310,7 @@
       state.planet2.green = planet2Green;
       state.planet2.omega = planetOmega(Math.sign(state.planet2.omega) || -1, true);
     }
-    assignOrbitOval(state.planet2, p2Min, p2Max);
+    assignKeplerOrbit(state.planet2, a2Use, eShared);
 
     state.safe = {
       x: cx,
@@ -310,11 +318,11 @@
       r: safeR,
     };
 
-    // Estación: un poco más a la derecha para dejar carril libre al corredor
+    // Estación más a la derecha para no rozar las órbitas del corredor
     const stationW = m * 0.11;
     const stationH = stationW * (1024 / 1536);
-    const stationBaseX = state.safe.x + m * 0.27;
-    const stationBaseY = state.safe.y + m * 0.1;
+    const stationBaseX = state.safe.x + m * 0.3;
+    const stationBaseY = state.safe.y + m * 0.11;
     if (!state.station || resetDynamic) {
       state.station = {
         x: stationBaseX,
@@ -453,72 +461,46 @@
     };
   }
 
-  function planetEllipseRadius(p) {
-    // Compat: radio polar aproximado (para física / impulso)
+  function planetOrbitRadiusAt(p, angle) {
     if (!p) return 0;
-    const s = state.star;
-    if (!s) return p.orbitR || 0;
-    return Math.hypot(p.x - s.x, p.y - s.y) || p.orbitR || 0;
+    const a = p.orbitA != null ? p.orbitA : (p.orbitRMin + p.orbitRMax) * 0.5;
+    const e = p.orbitE != null ? p.orbitE : 0;
+    const peri = p.orbitPeri != null ? p.orbitPeri : -Math.PI / 2;
+    const nu = angle - peri;
+    return (a * (1 - e * e)) / (1 + e * Math.cos(nu));
+  }
+
+  function planetEllipseRadius(p) {
+    if (!p) return 0;
+    return planetOrbitRadiusAt(p, p.angle);
   }
 
   function updatePlanetPos(p) {
     if (!p || !state.star) return;
     const s = state.star;
-    const a = p.orbitA != null ? p.orbitA : p.orbitRMax || p.orbitR;
-    const b = p.orbitB != null ? p.orbitB : (p.orbitRMin + p.orbitRMax) * 0.5 || p.orbitR;
-    const c = p.orbitC != null ? p.orbitC : 0;
-    // Elipse con centro bajo la estrella → óvalo suave (cerca arriba, lejos abajo/lados)
-    let ox = Math.cos(p.angle) * a;
-    let oy = c + Math.sin(p.angle) * b;
-
-    // No atravesar el cinturón del área segura
-    if (state.safe) {
-      const safePad =
-        (state.safeBelt && state.safeBelt.radius != null
-          ? state.safeBelt.radius
-          : state.safe.r + state.minDim * 0.055) +
-        state.minDim * 0.018 +
-        p.green;
-      const minY = state.safe.y + safePad - s.y; // relativo a estrella (negativo hacia arriba)
-      if (oy < minY) {
-        const scale = minY / oy;
-        if (scale > 0 && scale < 1) {
-          ox *= scale;
-          oy = minY;
-        }
-      }
-    }
-
-    // Distancia prudente a la estación (carril de atracaje libre)
-    if (state.station) {
-      const st = state.station;
-      const need =
-        (st.bodyR || st.w * 0.28) + p.green + state.minDim * (state.isMobile ? 0.09 : 0.07);
-      for (let i = 0; i < 10; i++) {
-        const px = s.x + ox;
-        const py = s.y + oy;
-        const d = Math.hypot(px - st.x, py - st.y);
-        if (d >= need) break;
-        // Acercar a la estrella para abrir el carril
-        ox *= 0.92;
-        oy *= 0.92;
-      }
-    }
-
-    p.x = s.x + ox;
-    p.y = s.y + oy;
-    p.orbitR = Math.hypot(ox, oy);
+    // Órbita polar suave (sin clamps ni “brincos”)
+    const r = planetOrbitRadiusAt(p, p.angle);
+    p.orbitR = r;
+    p.x = s.x + Math.cos(p.angle) * r;
+    p.y = s.y + Math.sin(p.angle) * r;
   }
 
   function getHostWorldVelocity(host) {
     if (!isPlanetHost(host)) return { vx: 0, vy: 0 };
     const omega = host.omega;
-    const a = host.orbitA != null ? host.orbitA : host.orbitR;
-    const b = host.orbitB != null ? host.orbitB : host.orbitR;
     const ang = host.angle;
+    const r = planetOrbitRadiusAt(host, ang);
+    const a = host.orbitA != null ? host.orbitA : r;
+    const e = host.orbitE != null ? host.orbitE : 0;
+    const peri = host.orbitPeri != null ? host.orbitPeri : -Math.PI / 2;
+    const nu = ang - peri;
+    // dr/dθ de r = a(1-e²)/(1+e cos ν)
+    const denom = 1 + e * Math.cos(nu);
+    const drdAng = denom !== 0 ? (a * (1 - e * e) * e * Math.sin(nu)) / (denom * denom) : 0;
+    const drdt = drdAng * omega;
     return {
-      vx: -Math.sin(ang) * omega * a,
-      vy: Math.cos(ang) * omega * b,
+      vx: drdt * Math.cos(ang) - r * Math.sin(ang) * omega,
+      vy: drdt * Math.sin(ang) + r * Math.cos(ang) * omega,
     };
   }
 
