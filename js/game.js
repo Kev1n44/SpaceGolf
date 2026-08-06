@@ -179,33 +179,44 @@
       : Math.min(state.h - shipR - 70, state.h * 0.91);
     const clearance = m * 0.05;
 
-    // Espacio máximo arriba: el periastro (más cerca) no debe chocar el área segura
-    const safeBeltClear = safeBeltR + rockR * 1.7 + (state.isMobile ? m * 0.05 : clearance);
-    const maxReachUp = Math.abs(cy - safeY) - safeBeltClear;
-    const maxReachDown = Math.abs(shipStartY - cy) - shipR - clearance * 0.6;
-
-    // Cinturón → Planeta 2 (elipse interior) → Planeta 1 (elipse exterior)
+    // Cinturón estelar y corredor superior (entre cinturón estrella y cinturón área segura)
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
-    const auraClearance = planetGreen + planet2Green + m * 0.022;
+    const starBeltOuter = starBeltR + starBeltThick;
+    const auraClearance = planetGreen + planet2Green + m * 0.024;
 
-    // Periastro arriba (cerca, evita área segura); abajo y lados más lejos de la estrella
-    const p2Min = starBeltR + starBeltThick + planet2Green + (state.isMobile ? m * 0.06 : m * 0.01);
-    let p2Max = p2Min + (state.isMobile ? m * 0.10 : m * 0.055);
-    let p1Min = p2Max + auraClearance;
-    let p1Max = p1Min + (state.isMobile ? m * 0.11 : m * 0.06);
+    // Distancia estrella → borde inferior del cinturón seguro
+    const safeBeltUnderside = (cy - safeY) - safeBeltR - rockR * 1.55;
+    // Corredor para centros de planetas arriba (entre ambos cinturones)
+    const corridorLo = starBeltOuter + planet2Green + m * 0.012;
+    const corridorHi = safeBeltUnderside - planetGreen - m * 0.012;
 
-    // Limitar el periastro del planeta 1 para no tocar el cinturón seguro
-    if (p1Min > maxReachUp - planetGreen) {
-      const squeeze = p1Min - (maxReachUp - planetGreen);
-      p1Min = Math.max(p2Max + auraClearance * 0.85, p1Min - squeeze);
-      p1Max = Math.min(p1Min + (state.isMobile ? m * 0.09 : m * 0.05), maxReachDown - planetGreen);
-      p2Max = Math.min(p2Max, p1Min - auraClearance);
-      p2Max = Math.max(p2Max, p2Min + m * 0.03);
+    // Abajo y lados: aprovechar espacio disponible
+    const maxReachDown =
+      Math.abs(shipStartY - cy) - shipR - clearance * 0.45 - planetGreen;
+    const maxReachSide = state.w * 0.5 - planetGreen - m * 0.03;
+    const reachWide = Math.min(maxReachDown, maxReachSide);
+
+    // Periastro arriba dentro del corredor; apoastro lados/abajo más extendido
+    let p2Min = corridorLo;
+    let p1Min = Math.min(corridorHi, p2Min + auraClearance + m * 0.01);
+    if (p1Min < p2Min + auraClearance) {
+      // Corredor muy estrecho: priorizar pasar entre cinturones
+      p1Min = Math.max(corridorLo + auraClearance * 0.75, corridorHi);
+      p2Min = Math.max(starBeltOuter + planet2Green * 0.85, p1Min - auraClearance);
     }
-    if (p1Max > maxReachDown - planetGreen * 0.5) {
-      p1Max = Math.max(p1Min + m * 0.04, maxReachDown - planetGreen * 0.5);
+
+    let p2Max = Math.min(reachWide * 0.72, p2Min + (state.isMobile ? m * 0.16 : m * 0.1));
+    let p1Max = Math.min(reachWide * 0.96, Math.max(p1Min + m * 0.08, p2Max + auraClearance));
+
+    // Mantener separación de auras en el apoastro
+    if (p1Max - p2Max < auraClearance) {
+      p2Max = Math.max(p2Min + m * 0.04, p1Max - auraClearance);
     }
+    // Nunca permitir que el periastro del planeta 1 salga del corredor (detrás del área segura)
+    p1Min = Math.min(p1Min, corridorHi);
+    p2Min = Math.min(p2Min, p1Min - auraClearance * 0.9);
+    p2Min = Math.max(p2Min, starBeltOuter + planet2Green * 0.8);
 
     // Órbita angular: más rápida que antes, pero menor que la sensación de la estrella
     const planetOmega = (sign, inner) => {
@@ -279,7 +290,6 @@
       state.planet2.green = planet2Green;
       state.planet2.omega = planetOmega(Math.sign(state.planet2.omega) || -1, true);
     }
-    updateAllPlanetPos();
 
     state.safe = {
       x: cx,
@@ -339,6 +349,7 @@
     const safeHoles = [{ center: toStation, width: gapHalf * 2 }];
     state.safeBelt = buildBeltRocks(state.safe.x, state.safe.y, safeBeltR, safeHoles, 22, rockR * 0.9, true);
     state.safeBelt.orbitOmega = 0.18;
+    updateAllPlanetPos();
 
     if (!state.asteroid || resetDynamic) {
       state.asteroid = {
@@ -433,9 +444,24 @@
     if (!p) return 0;
     const rMin = p.orbitRMin != null ? p.orbitRMin : p.orbitR;
     const rMax = p.orbitRMax != null ? p.orbitRMax : p.orbitR;
-    // Periastro arriba (cerca de la estrella); abajo y lados más lejos
-    const topness = Math.max(0, -Math.sin(p.angle));
-    return rMax - (rMax - rMin) * Math.pow(topness, 1.15);
+    // Recorte amplio cerca del zenit: pasa entre cinturones, no detrás del área segura
+    const angFromTop = normalizeAngle(p.angle + Math.PI / 2);
+    const topGate = Math.exp(-Math.pow(angFromTop / 0.72, 2));
+    let r = rMax - (rMax - rMin) * topGate;
+
+    // Tope duro: no atravesar el cinturón del área segura al subir
+    if (state.safe && state.star && Math.sin(p.angle) < -0.05) {
+      const safePad =
+        (state.safeBelt && state.safeBelt.radius != null
+          ? state.safeBelt.radius
+          : state.safe.r + state.minDim * 0.055) +
+        state.minDim * 0.02 +
+        p.green;
+      const maxUp = state.star.y - state.safe.y - safePad;
+      const maxR = maxUp / -Math.sin(p.angle);
+      if (maxR > 0) r = Math.min(r, maxR);
+    }
+    return r;
   }
 
   function updatePlanetPos(p) {
@@ -607,20 +633,10 @@
     const ang = host.angle;
     const omega = host.omega;
     const r = planetEllipseRadius(host);
-    const rMin = host.orbitRMin != null ? host.orbitRMin : r;
-    const rMax = host.orbitRMax != null ? host.orbitRMax : r;
-    // dr/dθ ≈ derivada de la forma periastro-arriba
-    const c = Math.cos(ang);
-    const s = Math.sin(ang);
-    const topness = Math.max(0, -s);
-    const drdAng =
-      topness > 0
-        ? -(rMax - rMin) * 1.15 * Math.pow(topness, 0.15) * (-c)
-        : 0;
-    const drdt = drdAng * omega;
+    // Aprox. tangencial (la forma se actualiza cada frame)
     return {
-      vx: drdt * c - r * s * omega,
-      vy: drdt * s + r * c * omega,
+      vx: -Math.sin(ang) * omega * r,
+      vy: Math.cos(ang) * omega * r,
     };
   }
 
