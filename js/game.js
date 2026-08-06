@@ -201,15 +201,15 @@
     const p1rx = Math.min(maxReachSide * 0.96, Math.max(p1ry * 1.85, starBeltOuter + m * 0.22));
     const p1oy = 0;
 
-    // Planeta 2 (verde): elipse vertical — alta, más estrecha; centro un poco abajo
-    // para llegar al corredor arriba y acercarse a la nave abajo
+    // Planeta 2 (verde): elipse vertical — un poco menos cerca de la nave;
+    // horizontalmente más abierta para alejarse de los agujeros del cinturón
     const p2Top = Math.min(corridorHi - m * 0.005, corridorMid + m * 0.02);
-    const p2Bot = Math.min(maxReachDown * 0.95, Math.max(p2Top + m * 0.18, maxReachDown * 0.88));
+    const p2Bot = Math.min(maxReachDown * 0.72, Math.max(p2Top + m * 0.14, maxReachDown * 0.65));
     const p2oy = (p2Bot - p2Top) * 0.5;
     const p2ry = (p2Bot + p2Top) * 0.5;
     const p2rx = Math.min(
-      p1rx * 0.52,
-      Math.max(starBeltOuter + planet2Green + m * 0.045, p1rx * 0.42)
+      p1rx * 0.68,
+      Math.max(starBeltOuter + planet2Green + m * 0.09, p1rx * 0.58)
     );
 
     const planetOmega = (sign, wide) => {
