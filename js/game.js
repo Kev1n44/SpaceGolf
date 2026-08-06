@@ -183,11 +183,13 @@
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
     const starBeltOuter = starBeltR + starBeltThick;
-    const auraGap = planetGreen + planet2Green + m * 0.028;
+    // Separación generosa entre auras para que no se solapen al cruzarse en ángulo
+    const auraGap = planetGreen + planet2Green + m * 0.06;
 
     // Distancia estrella → borde inferior del cinturón seguro
     const safeBeltUnderside = (cy - safeY) - safeBeltR - rockR * 1.6;
-    const corridorLo = starBeltOuter + planet2Green + m * 0.008;
+    // Más lejos del cinturón/agujeros estelares
+    const corridorLo = starBeltOuter + planet2Green + m * 0.05;
     const corridorHi = safeBeltUnderside - planetGreen - m * 0.035;
     const corridorSpan = Math.max(m * 0.015, corridorHi - corridorLo);
 
@@ -198,30 +200,32 @@
     const reachWide = Math.min(maxReachDown, maxReachSide);
 
     // Elipses Keplerianas anidadas (misma e) → nunca se cruzan, movimiento armónico
-    // Periastro arriba (corredor); apoastro abajo/lados más abiertos
-    let p2Min = corridorLo + corridorSpan * 0.18;
+    let p2Min = corridorLo + corridorSpan * 0.12;
     let p2Max = Math.min(reachWide * 0.82, p2Min + (state.isMobile ? m * 0.2 : m * 0.14));
-    if (p2Min > corridorHi - auraGap * 0.5) {
-      p2Min = Math.max(corridorLo, corridorHi - auraGap * 0.85);
+    if (p2Min > corridorHi - auraGap * 0.55) {
+      p2Min = Math.max(corridorLo, corridorHi - auraGap * 0.9);
       p2Max = Math.max(p2Min + m * 0.08, Math.min(p2Max, reachWide * 0.8));
     }
 
     // Misma excentricidad + semi-ejes escalados ⇒ órbitas concéntricas sin cruces
     const eShared = Math.min(
-      0.38,
+      0.36,
       Math.max(0.12, (p2Max - p2Min) / Math.max(p2Max + p2Min, 1))
     );
-    const a2 = (p2Min + p2Max) * 0.5;
-    const a1 = a2 + auraGap / Math.max(1 - eShared, 0.55);
-    const p1Min = a1 * (1 - eShared);
-    const p1Max = a1 * (1 + eShared);
-    // Si el periastro exterior sale del corredor, comprimir ambas
-    let a2Use = a2;
-    let a1Use = a1;
-    if (p1Min > corridorHi) {
-      const targetP1Min = corridorHi;
-      a1Use = targetP1Min / (1 - eShared);
-      a2Use = Math.max(corridorLo / (1 - eShared), a1Use - auraGap / (1 - eShared));
+    const minAGap = auraGap / Math.max(1 - eShared, 0.55);
+    let a2Use = (p2Min + p2Max) * 0.5;
+    let a1Use = a2Use + minAGap;
+
+    // Si el periastro exterior sale del corredor, comprimir ambas manteniendo separación
+    const p1Peri = a1Use * (1 - eShared);
+    if (p1Peri > corridorHi) {
+      a1Use = corridorHi / (1 - eShared);
+      a2Use = a1Use - minAGap;
+      const p2Peri = a2Use * (1 - eShared);
+      if (p2Peri < corridorLo) {
+        a2Use = corridorLo / (1 - eShared);
+        a1Use = a2Use + minAGap;
+      }
     }
 
     // Periastro ligeramente a la izquierda del zenit → pasa lejos de la estación (derecha)
@@ -467,7 +471,21 @@
     const e = p.orbitE != null ? p.orbitE : 0;
     const peri = p.orbitPeri != null ? p.orbitPeri : -Math.PI / 2;
     const nu = angle - peri;
-    return (a * (1 - e * e)) / (1 + e * Math.cos(nu));
+    let r = (a * (1 - e * e)) / (1 + e * Math.cos(nu));
+
+    // Alejarse un poco de los agujeros del cinturón estelar (mismo empujón en ambos → sin cruces)
+    if (state.starBelt && state.starBelt.holes) {
+      const bump = state.minDim * 0.04;
+      for (const h of state.starBelt.holes) {
+        const dAng = Math.abs(normalizeAngle(angle - h.center));
+        const half = h.width * 0.5 + 0.35;
+        if (dAng < half) {
+          const t = 1 - dAng / half;
+          r += bump * t * t;
+        }
+      }
+    }
+    return r;
   }
 
   function planetEllipseRadius(p) {
