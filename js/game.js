@@ -179,72 +179,57 @@
       : Math.min(state.h - shipR - 70, state.h * 0.91);
     const clearance = m * 0.05;
 
-    // Cinturón estelar y corredor superior (entre cinturón estrella y cinturón área segura)
+    // Cinturón estelar y corredor superior
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
     const starBeltOuter = starBeltR + starBeltThick;
-    // Separación generosa entre auras para que no se solapen al cruzarse en ángulo
-    const auraGap = planetGreen + planet2Green + m * 0.06;
 
-    // Distancia estrella → borde inferior del cinturón seguro
     const safeBeltUnderside = (cy - safeY) - safeBeltR - rockR * 1.6;
-    // Más lejos del cinturón/agujeros estelares
-    const corridorLo = starBeltOuter + planet2Green + m * 0.05;
-    const corridorHi = safeBeltUnderside - planetGreen - m * 0.035;
-    const corridorSpan = Math.max(m * 0.015, corridorHi - corridorLo);
+    const corridorLo = starBeltOuter + Math.max(planetGreen, planet2Green) + m * 0.02;
+    const corridorHi = safeBeltUnderside - Math.max(planetGreen, planet2Green) - m * 0.02;
+    const corridorMid = (corridorLo + corridorHi) * 0.5;
 
-    // Abajo y lados: aprovechar espacio (como en el boceto)
     const maxReachDown =
-      Math.abs(shipStartY - cy) - shipR - clearance * 0.35 - planetGreen;
-    const maxReachSide = state.w * 0.5 - planetGreen - m * 0.025;
-    const reachWide = Math.min(maxReachDown, maxReachSide);
+      Math.abs(shipStartY - cy) - shipR - clearance * 0.3 - planetGreen;
+    const maxReachSide = state.w * 0.5 - planetGreen - m * 0.02;
 
-    // Elipses Keplerianas anidadas (misma e) → nunca se cruzan, movimiento armónico
-    let p2Min = corridorLo + corridorSpan * 0.12;
-    let p2Max = Math.min(reachWide * 0.82, p2Min + (state.isMobile ? m * 0.2 : m * 0.14));
-    if (p2Min > corridorHi - auraGap * 0.55) {
-      p2Min = Math.max(corridorLo, corridorHi - auraGap * 0.9);
-      p2Max = Math.max(p2Min + m * 0.08, Math.min(p2Max, reachWide * 0.8));
-    }
-
-    // Misma excentricidad + semi-ejes escalados ⇒ órbitas concéntricas sin cruces
-    const eShared = Math.min(
-      0.36,
-      Math.max(0.12, (p2Max - p2Min) / Math.max(p2Max + p2Min, 1))
+    // Planeta 1 (naranja): elipse horizontal — ancha a los lados, baja altura
+    const p1ry = Math.min(
+      corridorMid,
+      Math.max(starBeltOuter + planetGreen + m * 0.025, corridorLo + (corridorHi - corridorLo) * 0.35)
     );
-    const minAGap = auraGap / Math.max(1 - eShared, 0.55);
-    let a2Use = (p2Min + p2Max) * 0.5;
-    let a1Use = a2Use + minAGap;
+    const p1rx = Math.min(maxReachSide * 0.96, Math.max(p1ry * 1.85, starBeltOuter + m * 0.22));
+    const p1oy = 0;
 
-    // Si el periastro exterior sale del corredor, comprimir ambas manteniendo separación
-    const p1Peri = a1Use * (1 - eShared);
-    if (p1Peri > corridorHi) {
-      a1Use = corridorHi / (1 - eShared);
-      a2Use = a1Use - minAGap;
-      const p2Peri = a2Use * (1 - eShared);
-      if (p2Peri < corridorLo) {
-        a2Use = corridorLo / (1 - eShared);
-        a1Use = a2Use + minAGap;
-      }
-    }
+    // Planeta 2 (verde): elipse vertical — alta, más estrecha; centro un poco abajo
+    // para llegar al corredor arriba y acercarse a la nave abajo
+    const p2Top = Math.min(corridorHi - m * 0.005, corridorMid + m * 0.02);
+    const p2Bot = Math.min(maxReachDown * 0.95, Math.max(p2Top + m * 0.18, maxReachDown * 0.88));
+    const p2oy = (p2Bot - p2Top) * 0.5;
+    const p2ry = (p2Bot + p2Top) * 0.5;
+    const p2rx = Math.min(
+      p1rx * 0.52,
+      Math.max(starBeltOuter + planet2Green + m * 0.045, p1rx * 0.42)
+    );
 
-    // Periastro ligeramente a la izquierda del zenit → pasa lejos de la estación (derecha)
-    const periapsis = -Math.PI / 2 - 0.22;
-
-    const planetOmega = (sign, inner) => {
-      const base = state.isMobile ? (inner ? 0.58 : 0.48) : inner ? 0.68 : 0.56;
+    const planetOmega = (sign, wide) => {
+      // Elipse ancha un poco más lenta; la vertical un poco más ágil
+      const base = state.isMobile ? (wide ? 0.46 : 0.56) : wide ? 0.52 : 0.64;
       return sign * base;
     };
 
-    const assignKeplerOrbit = (planet, a, e) => {
-      planet.orbitA = a;
-      planet.orbitE = e;
-      planet.orbitPeri = periapsis;
-      planet.orbitRMin = a * (1 - e);
-      planet.orbitRMax = a * (1 + e);
+    const assignAxisEllipse = (planet, rx, ry, oy) => {
+      planet.orbitRx = rx;
+      planet.orbitRy = ry;
+      planet.orbitOy = oy;
+      planet.orbitA = null;
+      planet.orbitE = null;
+      planet.orbitPeri = null;
       planet.orbitB = null;
       planet.orbitC = null;
-      planet.orbitR = planet.orbitRMin;
+      planet.orbitRMin = Math.min(rx, ry);
+      planet.orbitRMax = Math.max(rx, ry);
+      planet.orbitR = rx;
     };
 
     if (!state.star || resetDynamic) {
@@ -267,19 +252,18 @@
       });
     }
 
+    // Planeta 1: elipse naranja (horizontal)
     if (!state.planet || resetDynamic) {
       state.planet = {
-        angle: Math.PI * 0.2,
-        orbitR: a1Use * (1 - eShared),
-        orbitRMin: a1Use * (1 - eShared),
-        orbitRMax: a1Use * (1 + eShared),
-        orbitA: a1Use,
-        orbitE: eShared,
-        orbitPeri: periapsis,
+        angle: Math.PI, // empieza a la izquierda (como en el boceto)
+        orbitR: p1rx,
+        orbitRx: p1rx,
+        orbitRy: p1ry,
+        orbitOy: p1oy,
         r: planetR,
         red: planetRed,
         green: planetGreen,
-        omega: planetOmega(1, false),
+        omega: planetOmega(1, true),
         x: 0,
         y: 0,
       };
@@ -287,24 +271,22 @@
       state.planet.r = planetR;
       state.planet.red = planetRed;
       state.planet.green = planetGreen;
-      state.planet.omega = planetOmega(Math.sign(state.planet.omega) || 1, false);
+      state.planet.omega = planetOmega(Math.sign(state.planet.omega) || 1, true);
     }
-    assignKeplerOrbit(state.planet, a1Use, eShared);
+    assignAxisEllipse(state.planet, p1rx, p1ry, p1oy);
 
-    // Planeta 2: órbita interior concéntrica, sentido contrario
+    // Planeta 2: elipse verde (vertical), sentido contrario
     if (!state.planet2 || resetDynamic) {
       state.planet2 = {
-        angle: Math.PI * 1.15,
-        orbitR: a2Use * (1 - eShared),
-        orbitRMin: a2Use * (1 - eShared),
-        orbitRMax: a2Use * (1 + eShared),
-        orbitA: a2Use,
-        orbitE: eShared,
-        orbitPeri: periapsis,
+        angle: Math.PI / 2, // empieza abajo (como en el boceto)
+        orbitR: p2ry,
+        orbitRx: p2rx,
+        orbitRy: p2ry,
+        orbitOy: p2oy,
         r: planet2R,
         red: planet2Red,
         green: planet2Green,
-        omega: planetOmega(-1, true),
+        omega: planetOmega(-1, false),
         x: 0,
         y: 0,
       };
@@ -312,9 +294,9 @@
       state.planet2.r = planet2R;
       state.planet2.red = planet2Red;
       state.planet2.green = planet2Green;
-      state.planet2.omega = planetOmega(Math.sign(state.planet2.omega) || -1, true);
+      state.planet2.omega = planetOmega(Math.sign(state.planet2.omega) || -1, false);
     }
-    assignKeplerOrbit(state.planet2, a2Use, eShared);
+    assignAxisEllipse(state.planet2, p2rx, p2ry, p2oy);
 
     state.safe = {
       x: cx,
@@ -322,11 +304,11 @@
       r: safeR,
     };
 
-    // Estación más a la derecha para no rozar las órbitas del corredor
+    // Estación a la derecha, fuera del arco superior de la elipse naranja
     const stationW = m * 0.11;
     const stationH = stationW * (1024 / 1536);
-    const stationBaseX = state.safe.x + m * 0.3;
-    const stationBaseY = state.safe.y + m * 0.11;
+    const stationBaseX = Math.min(state.w - stationW * 0.55, state.safe.x + m * 0.34);
+    const stationBaseY = state.safe.y + m * 0.12;
     if (!state.station || resetDynamic) {
       state.station = {
         x: stationBaseX,
@@ -465,60 +447,32 @@
     };
   }
 
-  function planetOrbitRadiusAt(p, angle) {
-    if (!p) return 0;
-    const a = p.orbitA != null ? p.orbitA : (p.orbitRMin + p.orbitRMax) * 0.5;
-    const e = p.orbitE != null ? p.orbitE : 0;
-    const peri = p.orbitPeri != null ? p.orbitPeri : -Math.PI / 2;
-    const nu = angle - peri;
-    let r = (a * (1 - e * e)) / (1 + e * Math.cos(nu));
-
-    // Alejarse un poco de los agujeros del cinturón estelar (mismo empujón en ambos → sin cruces)
-    if (state.starBelt && state.starBelt.holes) {
-      const bump = state.minDim * 0.04;
-      for (const h of state.starBelt.holes) {
-        const dAng = Math.abs(normalizeAngle(angle - h.center));
-        const half = h.width * 0.5 + 0.35;
-        if (dAng < half) {
-          const t = 1 - dAng / half;
-          r += bump * t * t;
-        }
-      }
-    }
-    return r;
-  }
-
   function planetEllipseRadius(p) {
-    if (!p) return 0;
-    return planetOrbitRadiusAt(p, p.angle);
+    if (!p || !state.star) return 0;
+    return Math.hypot(p.x - state.star.x, p.y - state.star.y) || p.orbitR || 0;
   }
 
   function updatePlanetPos(p) {
     if (!p || !state.star) return;
     const s = state.star;
-    // Órbita polar suave (sin clamps ni “brincos”)
-    const r = planetOrbitRadiusAt(p, p.angle);
-    p.orbitR = r;
-    p.x = s.x + Math.cos(p.angle) * r;
-    p.y = s.y + Math.sin(p.angle) * r;
+    const rx = p.orbitRx != null ? p.orbitRx : p.orbitRMax || p.orbitR;
+    const ry = p.orbitRy != null ? p.orbitRy : p.orbitRMin || p.orbitR;
+    const oy = p.orbitOy || 0;
+    // Elipse cartesiana suave (horizontal u vertical según rx/ry)
+    p.x = s.x + Math.cos(p.angle) * rx;
+    p.y = s.y + oy + Math.sin(p.angle) * ry;
+    p.orbitR = Math.hypot(p.x - s.x, p.y - s.y);
   }
 
   function getHostWorldVelocity(host) {
     if (!isPlanetHost(host)) return { vx: 0, vy: 0 };
     const omega = host.omega;
     const ang = host.angle;
-    const r = planetOrbitRadiusAt(host, ang);
-    const a = host.orbitA != null ? host.orbitA : r;
-    const e = host.orbitE != null ? host.orbitE : 0;
-    const peri = host.orbitPeri != null ? host.orbitPeri : -Math.PI / 2;
-    const nu = ang - peri;
-    // dr/dθ de r = a(1-e²)/(1+e cos ν)
-    const denom = 1 + e * Math.cos(nu);
-    const drdAng = denom !== 0 ? (a * (1 - e * e) * e * Math.sin(nu)) / (denom * denom) : 0;
-    const drdt = drdAng * omega;
+    const rx = host.orbitRx != null ? host.orbitRx : host.orbitR;
+    const ry = host.orbitRy != null ? host.orbitRy : host.orbitR;
     return {
-      vx: drdt * Math.cos(ang) - r * Math.sin(ang) * omega,
-      vy: drdt * Math.sin(ang) + r * Math.cos(ang) * omega,
+      vx: -Math.sin(ang) * omega * rx,
+      vy: Math.cos(ang) * omega * ry,
     };
   }
 
