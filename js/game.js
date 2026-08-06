@@ -179,41 +179,38 @@
       : Math.min(state.h - shipR - 70, state.h * 0.91);
     const clearance = m * 0.05;
 
-    // Espacio máximo: planeta 1 no debe chocar con el cinturón del área segura
-    const safeBeltClear = safeBeltR + rockR * 1.7 + (state.isMobile ? m * 0.045 : clearance);
+    // Espacio máximo arriba: el periastro (más cerca) no debe chocar el área segura
+    const safeBeltClear = safeBeltR + rockR * 1.7 + (state.isMobile ? m * 0.05 : clearance);
     const maxReachUp = Math.abs(cy - safeY) - safeBeltClear;
-    const maxReachDown = Math.abs(shipStartY - cy) - shipR - clearance;
-    const maxPlanetCenter = Math.min(maxReachUp, maxReachDown) - planetGreen;
+    const maxReachDown = Math.abs(shipStartY - cy) - shipR - clearance * 0.6;
 
-    // Cinturón → Planeta 2 → Planeta 1
+    // Cinturón → Planeta 2 (elipse interior) → Planeta 1 (elipse exterior)
     const starBeltThick = rockR * 1.8;
     let starBeltR = starGreen + m * 0.02;
-    const auraClearance = planetGreen + planet2Green + m * 0.018;
+    const auraClearance = planetGreen + planet2Green + m * 0.022;
 
-    // En celular: planeta 2 un poco más lejos del cinturón estelar
-    const planetGapFromBelt = state.isMobile ? m * 0.11 : m * 0.008;
-    let planet2OrbitR = starBeltR + starBeltThick + planet2Green + planetGapFromBelt;
-    // Planeta 1 más abajo (órbita un poco menor) para no rozar el área segura
-    let planetOrbitR =
-      planet2OrbitR + auraClearance + (state.isMobile ? m * 0.008 : 0);
+    // Periastro arriba (cerca, evita área segura); abajo y lados más lejos de la estrella
+    const p2Min = starBeltR + starBeltThick + planet2Green + (state.isMobile ? m * 0.06 : m * 0.01);
+    let p2Max = p2Min + (state.isMobile ? m * 0.10 : m * 0.055);
+    let p1Min = p2Max + auraClearance;
+    let p1Max = p1Min + (state.isMobile ? m * 0.11 : m * 0.06);
 
-    // Si no cabe el exterior, comprimir manteniendo separación de auras
-    if (planetOrbitR > maxPlanetCenter) {
-      planetOrbitR = Math.max(starBeltR + starBeltThick + auraClearance, maxPlanetCenter);
-      planet2OrbitR = planetOrbitR - auraClearance;
-      if (planet2OrbitR - planet2Green < starBeltR + starBeltThick) {
-        starBeltR = Math.max(starGreen + m * 0.02, planet2OrbitR - planet2Green - starBeltThick - m * 0.008);
-        planet2OrbitR = starBeltR + starBeltThick + planet2Green + (state.isMobile ? m * 0.04 : m * 0.006);
-        planetOrbitR = Math.min(planet2OrbitR + auraClearance, maxPlanetCenter);
-      }
+    // Limitar el periastro del planeta 1 para no tocar el cinturón seguro
+    if (p1Min > maxReachUp - planetGreen) {
+      const squeeze = p1Min - (maxReachUp - planetGreen);
+      p1Min = Math.max(p2Max + auraClearance * 0.85, p1Min - squeeze);
+      p1Max = Math.min(p1Min + (state.isMobile ? m * 0.09 : m * 0.05), maxReachDown - planetGreen);
+      p2Max = Math.min(p2Max, p1Min - auraClearance);
+      p2Max = Math.max(p2Max, p2Min + m * 0.03);
+    }
+    if (p1Max > maxReachDown - planetGreen * 0.5) {
+      p1Max = Math.max(p1Min + m * 0.04, maxReachDown - planetGreen * 0.5);
     }
 
-    // Más cerca de la estrella → órbita angular más lenta (y velocidad lineal menor)
-    const planetOmega = (orbitR, sign) => {
-      const ref = m * 0.34;
-      const factor = Math.pow(Math.max(0.4, orbitR / ref), 1.35);
-      const base = state.isMobile ? 0.26 : 0.34;
-      return sign * base * factor;
+    // Órbita angular: más rápida que antes, pero menor que la sensación de la estrella
+    const planetOmega = (sign, inner) => {
+      const base = state.isMobile ? (inner ? 0.62 : 0.52) : inner ? 0.72 : 0.6;
+      return sign * base;
     };
 
     if (!state.star || resetDynamic) {
@@ -239,40 +236,48 @@
     if (!state.planet || resetDynamic) {
       state.planet = {
         angle: Math.PI * 0.15,
-        orbitR: planetOrbitR,
+        orbitR: p1Min,
+        orbitRMin: p1Min,
+        orbitRMax: p1Max,
         r: planetR,
         red: planetRed,
         green: planetGreen,
-        omega: planetOmega(planetOrbitR, 1),
+        omega: planetOmega(1, false),
         x: 0,
         y: 0,
       };
     } else {
-      state.planet.orbitR = planetOrbitR;
+      state.planet.orbitRMin = p1Min;
+      state.planet.orbitRMax = p1Max;
+      state.planet.orbitR = p1Min;
       state.planet.r = planetR;
       state.planet.red = planetRed;
       state.planet.green = planetGreen;
-      state.planet.omega = planetOmega(planetOrbitR, Math.sign(state.planet.omega) || 1);
+      state.planet.omega = planetOmega(Math.sign(state.planet.omega) || 1, false);
     }
 
-    // Planeta 2: órbita interior (más cerca de la estrella), sentido contrario
+    // Planeta 2: elipse interior, sentido contrario
     if (!state.planet2 || resetDynamic) {
       state.planet2 = {
         angle: Math.PI * 1.1,
-        orbitR: planet2OrbitR,
+        orbitR: p2Min,
+        orbitRMin: p2Min,
+        orbitRMax: p2Max,
         r: planet2R,
         red: planet2Red,
         green: planet2Green,
-        omega: planetOmega(planet2OrbitR, -1),
+        omega: planetOmega(-1, true),
         x: 0,
         y: 0,
       };
     } else {
-      state.planet2.orbitR = planet2OrbitR;
+      state.planet2.orbitRMin = p2Min;
+      state.planet2.orbitRMax = p2Max;
+      state.planet2.orbitR = p2Min;
       state.planet2.r = planet2R;
       state.planet2.red = planet2Red;
       state.planet2.green = planet2Green;
-      state.planet2.omega = planetOmega(planet2OrbitR, Math.sign(state.planet2.omega) || -1);
+      state.planet2.omega = planetOmega(Math.sign(state.planet2.omega) || -1, true);
     }
     updateAllPlanetPos();
 
@@ -362,6 +367,7 @@
         orbitAngle: 0,
         orbitOmega: 0,
         orbitGrace: 0,
+        beltGrace: 0,
         dockGrace: 0,
       };
       state.aimAngle = -Math.PI / 2;
@@ -423,11 +429,22 @@
     };
   }
 
+  function planetEllipseRadius(p) {
+    if (!p) return 0;
+    const rMin = p.orbitRMin != null ? p.orbitRMin : p.orbitR;
+    const rMax = p.orbitRMax != null ? p.orbitRMax : p.orbitR;
+    // Periastro arriba (cerca de la estrella); abajo y lados más lejos
+    const topness = Math.max(0, -Math.sin(p.angle));
+    return rMax - (rMax - rMin) * Math.pow(topness, 1.15);
+  }
+
   function updatePlanetPos(p) {
     if (!p) return;
     const s = state.star;
-    p.x = s.x + Math.cos(p.angle) * p.orbitR;
-    p.y = s.y + Math.sin(p.angle) * p.orbitR;
+    const r = planetEllipseRadius(p);
+    p.orbitR = r;
+    p.x = s.x + Math.cos(p.angle) * r;
+    p.y = s.y + Math.sin(p.angle) * r;
   }
 
   function updateAllPlanetPos() {
@@ -585,14 +602,25 @@
   }
 
   function getHostWorldVelocity(host) {
-    // Velocidad orbital del cuerpo alrededor de la estrella (planetas)
+    // Velocidad orbital elíptica del planeta alrededor de la estrella
     if (!isPlanetHost(host)) return { vx: 0, vy: 0 };
     const ang = host.angle;
     const omega = host.omega;
-    const r = host.orbitR;
+    const r = planetEllipseRadius(host);
+    const rMin = host.orbitRMin != null ? host.orbitRMin : r;
+    const rMax = host.orbitRMax != null ? host.orbitRMax : r;
+    // dr/dθ ≈ derivada de la forma periastro-arriba
+    const c = Math.cos(ang);
+    const s = Math.sin(ang);
+    const topness = Math.max(0, -s);
+    const drdAng =
+      topness > 0
+        ? -(rMax - rMin) * 1.15 * Math.pow(topness, 0.15) * (-c)
+        : 0;
+    const drdt = drdAng * omega;
     return {
-      vx: -Math.sin(ang) * omega * r,
-      vy: Math.cos(ang) * omega * r,
+      vx: drdt * c - r * s * omega,
+      vy: drdt * s + r * c * omega,
     };
   }
 
@@ -616,31 +644,24 @@
       const fx = fromStarX / fl;
       const fy = fromStarY / fl;
 
-      // Salir desde el borde verde del planeta (recorrido visible; evita teletransporte
-      // al cinturón/estrella cuando el planeta está cerca)
-      const placeR = Math.max(
-        fl - host.green - ship.r * 0.55,
-        state.star.green + ship.r + state.minDim * 0.08
-      );
-      ship.x = state.star.x + fx * placeR;
-      ship.y = state.star.y + fy * placeR;
+      // Salir del borde verde hacia la estrella (recorrido visible)
+      const placeR = fl - host.green - ship.r * 0.45;
+      ship.x = state.star.x + fx * Math.max(placeR, host.r + ship.r);
+      ship.y = state.star.y + fy * Math.max(placeR, host.r + ship.r);
 
-      // Más cerca de la estrella → propulsión más lenta (gravedad)
-      const distNorm = fl / Math.max(state.minDim, 1);
-      const distFactor = Math.pow(Math.max(0.35, Math.min(1.35, distNorm / 0.36)), 1.1);
-      const speed = state.isMobile
-        ? state.minDim * Math.min(0.022, Math.max(0.009, 0.008 + 0.011 * distFactor))
-        : state.minDim * Math.min(0.036, Math.max(0.014, 0.012 + 0.016 * distFactor));
+      // Impulso hacia la estrella (visible, no instantáneo)
+      const speed = state.isMobile ? state.minDim * 0.034 : state.minDim * 0.045;
       vx = -fx * speed;
       vy = -fy * speed;
 
-      // Física: hereda parte de la velocidad orbital del planeta
+      // Hereda un poco la tangente del planeta (sin dominar el impulso)
       const hv = getHostWorldVelocity(host);
-      const inherit = state.isMobile ? 0.45 : 0.75;
-      vx += hv.vx * inherit;
-      vy += hv.vy * inherit;
+      vx += hv.vx * 0.28;
+      vy += hv.vy * 0.28;
 
-      ship.orbitGrace = 0.85;
+      // Cruzar el cinturón estelar en el trayecto planeta → estrella
+      ship.orbitGrace = 1.1;
+      ship.beltGrace = 1.15;
     } else {
       // Propulsión de la estrella: magnitud fija (no sube con la órbita visual más rápida)
       const propBase = 0.10;
@@ -906,6 +927,7 @@
 
     if (state.thrustCooldown > 0) state.thrustCooldown -= dt;
     if (state.ship && state.ship.orbitGrace > 0) state.ship.orbitGrace -= dt;
+    if (state.ship && state.ship.beltGrace > 0) state.ship.beltGrace -= dt;
     if (state.ship && state.ship.dockGrace > 0) state.ship.dockGrace -= dt;
 
     // Recarga de aire (solo fuera de menú/pausa/fin)
@@ -987,8 +1009,12 @@
       return;
     }
 
-    // Cinturones de asteroides
-    if (hitBelt(state.starBelt, ship) || hitBelt(state.safeBelt, ship)) {
+    // Cinturones de asteroides (gracia breve al salir de un planeta → estrella)
+    if (hitBelt(state.starBelt, ship) && !(ship.beltGrace > 0)) {
+      endGame(false, "La nave se estrelló contra el cinturón de asteroides.");
+      return;
+    }
+    if (hitBelt(state.safeBelt, ship)) {
       endGame(false, "La nave se estrelló contra el cinturón de asteroides.");
       return;
     }
