@@ -351,7 +351,7 @@
     // Satélite obstáculo (izquierda): balanceo vertical como la estación, sin auras
     const satW = m * 0.085;
     const satH = satW * 0.85;
-    const satBaseX = state.w * 0.24;
+    const satBaseX = state.w * 0.31;
     const satBaseY = cy + m * 0.08;
     if (!state.satellite || resetDynamic) {
       state.satellite = {
