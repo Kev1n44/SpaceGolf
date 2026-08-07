@@ -33,6 +33,7 @@
     planeta2: "Images/Planeta 2.png",
     asteroide: "Images/Asteroide.png",
     estacion: "Images/Estacion espacial.png",
+    satelite: "Images/Sate\u0301lite.png",
   };
 
   const images = {};
@@ -63,6 +64,7 @@
     planet2: null,
     asteroid: null,
     station: null,
+    satellite: null,
     starBelt: null,
     safeBelt: null,
     safe: null,
@@ -107,6 +109,11 @@
           if (key === "estacion" && !img.dataset.retried) {
             img.dataset.retried = "1";
             img.src = "Images/Estaci\u00f3n espacial.png";
+            return;
+          }
+          if (key === "satelite" && !img.dataset.retried) {
+            img.dataset.retried = "1";
+            img.src = "Images/Sat\u00e9lite.png";
             return;
           }
           console.error("No se pudo cargar:", src);
@@ -174,6 +181,7 @@
     const safeY = state.isPortraitMobile
       ? Math.max(safeBeltR + rockR * 1.6 + topPad, playH * 0.13)
       : Math.max(safeR + 24, state.h * 0.075);
+    const shipStartX = state.isMobile ? state.w * 0.14 : state.w * 0.16;
     const shipStartY = state.isMobile
       ? playH - shipR - 10
       : Math.min(state.h - shipR - 70, state.h * 0.91);
@@ -340,6 +348,37 @@
       state.station.dockR = shipR * 1.35;
     }
 
+    // Satélite obstáculo (izquierda): balanceo vertical como la estación, sin auras
+    const satW = m * 0.085;
+    const satH = satW * 0.85;
+    const satBaseX = state.w * 0.13;
+    const satBaseY = cy + m * 0.08;
+    if (!state.satellite || resetDynamic) {
+      state.satellite = {
+        x: satBaseX,
+        y: satBaseY,
+        baseX: satBaseX,
+        baseY: satBaseY,
+        w: satW,
+        h: satH,
+        bobPhase: 1.1,
+        bobAmp: m * 0.014,
+        bobSpeed: 1.25,
+        bodyR: satW * 0.38,
+      };
+    } else {
+      state.satellite.baseX = satBaseX;
+      state.satellite.baseY = satBaseY;
+      state.satellite.x = satBaseX;
+      state.satellite.y =
+        satBaseY + Math.sin(state.satellite.bobPhase || 0) * state.satellite.bobAmp;
+      state.satellite.w = satW;
+      state.satellite.h = satH;
+      state.satellite.bobAmp = m * 0.014;
+      state.satellite.bobSpeed = 1.25;
+      state.satellite.bodyR = satW * 0.38;
+    }
+
     // Agujeros del cinturón estelar: izquierda, superior-derecha e inferior
     const holePad = ((Math.PI * 2) / 36) * 2;
     const starHoles = [
@@ -373,7 +412,7 @@
 
     if (!state.ship || resetDynamic) {
       state.ship = {
-        x: cx,
+        x: shipStartX,
         y: shipStartY,
         r: shipR,
         vx: 0,
@@ -896,6 +935,14 @@
       st.y = st.baseY + Math.sin(st.bobPhase) * st.bobAmp;
     }
 
+    // Satélite obstáculo: mismo tipo de balanceo
+    if (state.satellite) {
+      const sat = state.satellite;
+      sat.bobPhase = (sat.bobPhase || 0) + sat.bobSpeed * dt;
+      sat.x = sat.baseX;
+      sat.y = sat.baseY + Math.sin(sat.bobPhase) * sat.bobAmp;
+    }
+
     // Mantener posiciones de cinturones
     if (state.starBelt) {
       state.starBelt.cx = state.star.x;
@@ -1040,6 +1087,15 @@
       }
     }
 
+    // Satélite obstáculo (sin atracaje)
+    if (state.satellite) {
+      const sat = state.satellite;
+      if (dist(ship.x, ship.y, sat.x, sat.y) < sat.bodyR + ship.r * 0.85) {
+        endGame(false, "La nave colisionó con un satélite.");
+        return;
+      }
+    }
+
     const speed = shipSpeed();
     const canCapture = ship.orbitGrace <= 0 && speed <= orbitCaptureSpeed();
 
@@ -1125,6 +1181,7 @@
     }
 
     drawStation();
+    drawSatellite();
 
     drawImageCentered(images.asteroide, state.asteroid.x, state.asteroid.y, state.asteroid.r * 2.1);
 
@@ -1270,6 +1327,22 @@
     ctx.arc(dock.x, dock.y, st.dockR, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSatellite() {
+    const sat = state.satellite;
+    if (!sat) return;
+    ctx.save();
+    ctx.translate(sat.x, sat.y);
+    if (images.satelite && images.satelite.complete && images.satelite.naturalWidth) {
+      ctx.drawImage(images.satelite, -sat.w / 2, -sat.h / 2, sat.w, sat.h);
+    } else {
+      ctx.fillStyle = "#9aa3b2";
+      ctx.beginPath();
+      ctx.arc(0, 0, sat.bodyR, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
