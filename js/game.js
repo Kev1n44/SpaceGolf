@@ -348,11 +348,12 @@
       state.station.dockR = shipR * 1.35;
     }
 
-    // Satélite obstáculo (izquierda): balanceo vertical como la estación, sin auras
-    const satW = m * 0.085;
+    // Satélite: sobre la línea nave → área segura para bloquear el atajo directo
+    const satW = m * 0.09;
     const satH = satW * 0.85;
-    const satBaseX = state.w * 0.36;
-    const satBaseY = cy + m * 0.15;
+    const blockT = state.isMobile ? 0.4 : 0.38;
+    const satBaseX = shipStartX + (state.safe.x - shipStartX) * blockT;
+    const satBaseY = shipStartY + (state.safe.y - shipStartY) * blockT;
     if (!state.satellite || resetDynamic) {
       state.satellite = {
         x: satBaseX,
@@ -362,9 +363,9 @@
         w: satW,
         h: satH,
         bobPhase: 1.1,
-        bobAmp: m * 0.014,
+        bobAmp: m * 0.012,
         bobSpeed: 1.25,
-        bodyR: satW * 0.38,
+        bodyR: satW * 0.42,
       };
     } else {
       state.satellite.baseX = satBaseX;
@@ -374,9 +375,9 @@
         satBaseY + Math.sin(state.satellite.bobPhase || 0) * state.satellite.bobAmp;
       state.satellite.w = satW;
       state.satellite.h = satH;
-      state.satellite.bobAmp = m * 0.014;
+      state.satellite.bobAmp = m * 0.012;
       state.satellite.bobSpeed = 1.25;
-      state.satellite.bodyR = satW * 0.38;
+      state.satellite.bodyR = satW * 0.42;
     }
 
     // Agujeros del cinturón estelar: izquierda, superior-derecha e inferior
