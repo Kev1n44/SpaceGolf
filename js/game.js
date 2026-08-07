@@ -352,7 +352,7 @@
     const satW = m * 0.09;
     const satH = satW * 0.85;
     const blockT = state.isMobile ? 0.4 : 0.38;
-    const satBaseX = shipStartX + (state.safe.x - shipStartX) * blockT;
+    const satBaseX = shipStartX + (state.safe.x - shipStartX) * blockT - state.w * 0.02;
     const satBaseY = shipStartY + (state.safe.y - shipStartY) * blockT;
     if (!state.satellite || resetDynamic) {
       state.satellite = {
