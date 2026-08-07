@@ -177,10 +177,10 @@
     const planet2Green = planet2R * 1.50;
 
     // En móvil: bajar el área segura para que su cinturón no se corte arriba (HUD + notch)
-    const topPad = state.isMobile ? Math.max(56, state.h * 0.06) : 28;
+    const topPad = state.isMobile ? Math.max(48, state.h * 0.05) : 22;
     const safeY = state.isPortraitMobile
-      ? Math.max(safeBeltR + rockR * 1.6 + topPad, playH * 0.13)
-      : Math.max(safeR + 24, state.h * 0.075);
+      ? Math.max(safeBeltR + rockR * 1.5 + topPad, playH * 0.105)
+      : Math.max(safeR + 18, state.h * 0.055);
     const shipStartX = state.isMobile ? state.w * 0.14 : state.w * 0.16;
     const shipStartY = state.isMobile
       ? playH - shipR - 10
@@ -316,7 +316,7 @@
     const stationW = m * 0.11;
     const stationH = stationW * (1024 / 1536);
     const stationBaseX = Math.min(state.w - stationW * 0.55, state.safe.x + m * 0.34);
-    const stationBaseY = state.safe.y + m * 0.12;
+    const stationBaseY = state.safe.y + m * 0.06;
     if (!state.station || resetDynamic) {
       state.station = {
         x: stationBaseX,
@@ -351,8 +351,8 @@
     // Satélite obstáculo (izquierda): balanceo vertical como la estación, sin auras
     const satW = m * 0.085;
     const satH = satW * 0.85;
-    const satBaseX = state.w * 0.31;
-    const satBaseY = cy + m * 0.08;
+    const satBaseX = state.w * 0.36;
+    const satBaseY = cy + m * 0.15;
     if (!state.satellite || resetDynamic) {
       state.satellite = {
         x: satBaseX,
