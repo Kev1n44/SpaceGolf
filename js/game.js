@@ -351,7 +351,7 @@
     // Satélite obstáculo (izquierda): balanceo vertical como la estación, sin auras
     const satW = m * 0.085;
     const satH = satW * 0.85;
-    const satBaseX = state.w * 0.13;
+    const satBaseX = state.w * 0.24;
     const satBaseY = cy + m * 0.08;
     if (!state.satellite || resetDynamic) {
       state.satellite = {
@@ -1181,9 +1181,11 @@
     }
 
     drawStation();
-    drawSatellite();
 
     drawImageCentered(images.asteroide, state.asteroid.x, state.asteroid.y, state.asteroid.r * 2.1);
+
+    // Satélite por encima de planetas/asteroide (los planetas pasan detrás)
+    drawSatellite();
 
     // Partículas detrás de la nave
     drawParticles();
